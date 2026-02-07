@@ -340,6 +340,27 @@ jobs:
     #   pr-message: "Thanks for your contribution!"
 ```
 
+### `contributor-report.yml` — Contributor Quality Report
+
+Generates a quality report for PR contributors based on merge rate, account age, and reactions.
+
+```yaml
+# .github/workflows/contributor-report.yml
+name: Contributor Report
+on:
+  pull_request:
+    types: [opened, reopened, synchronize, edited]
+
+jobs:
+  report:
+    uses: dallay/common-actions/.github/workflows/contributor-report.yml@v1
+    secrets: inherit
+    # with:
+    #   threshold-pr-merge-rate: '0.3'
+    #   threshold-account-age: '30'
+    #   on-fail: 'comment'
+```
+
 ### `cleanup-cache.yml` — Cleanup Branch Caches
 
 Removes GitHub Actions caches associated with a closed PR's branch.
