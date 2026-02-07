@@ -120,7 +120,7 @@ runs:
 
     - name: Upload test results
       if: always() && inputs.upload-results == 'true'
-      uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+      uses: actions/upload-artifact@b7c566a772e6b6bfb58ed0dc250532a479d7789f # v6
       with:
         name: playwright-report-${{ inputs.browser }}-${{ github.run_number }}
         path: ${{ inputs.working-directory }}/playwright-report/
@@ -129,7 +129,7 @@ runs:
 
     - name: Upload test traces
       if: failure() && inputs.upload-results == 'true'
-      uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+      uses: actions/upload-artifact@b7c566a772e6b6bfb58ed0dc250532a479d7789f # v6
       with:
         name: playwright-traces-${{ inputs.browser }}-${{ github.run_number }}
         path: ${{ inputs.working-directory }}/test-results/
