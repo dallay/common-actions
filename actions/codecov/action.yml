@@ -32,6 +32,10 @@ inputs:
     description: "Enable verbose output for debugging"
     required: false
     default: "false"
+  fail-on-upload-error:
+    description: "Fail the workflow if Codecov upload fails"
+    required: false
+    default: "false"
 
 outputs:
   upload-failed:
@@ -67,3 +71,10 @@ runs:
           echo "upload-failed=false" >> $GITHUB_OUTPUT
           echo "✅ Codecov upload succeeded"
         fi
+
+    - name: Fail on upload error
+      if: inputs.fail-on-upload-error == 'true' && steps.status.outputs.upload-failed == 'true'
+      shell: bash
+      run: |
+        echo "❌ Codecov upload failed and fail-on-upload-error is enabled"
+        exit 1

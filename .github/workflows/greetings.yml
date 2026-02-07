@@ -19,6 +19,10 @@ on:
         type: string
         required: false
         default: "Thank you for contributing to this project with this PR, welcome to the community and the amazing world of open source!"
+    secrets:
+      github-token:
+        description: "GitHub token for posting greetings (defaults to GITHUB_TOKEN)"
+        required: false
 
 permissions:
   issues: write
@@ -31,6 +35,6 @@ jobs:
     steps:
       - uses: actions/first-interaction@1c4688942c71f71d4f5502a26ea67c331730fa4d # v3
         with:
-          repo_token: ${{ secrets.GITHUB_TOKEN }}
+          repo_token: ${{ secrets.github-token || github.token }}
           issue_message: ${{ inputs.issue-message }}
           pr_message: ${{ inputs.pr-message }}

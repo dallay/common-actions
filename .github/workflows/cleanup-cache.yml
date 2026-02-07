@@ -8,6 +8,15 @@ name: Cleanup caches for closed branches
 
 on:
   workflow_call:
+    inputs:
+      pr-number:
+        description: "Pull request number to cleanup caches for (optional)"
+        type: number
+        required: false
+    secrets:
+      github-token:
+        description: "GitHub token for cache cleanup (defaults to GITHUB_TOKEN)"
+        required: false
 
 permissions:
   actions: write
@@ -17,6 +26,9 @@ jobs:
   cleanup:
     name: Cleanup PR caches
     runs-on: ubuntu-latest
+    env:
+      GH_TOKEN: ${{ secrets.github-token || github.token }}
+      PR_NUMBER: ${{ inputs.pr-number || github.event.pull_request.number }}
     steps:
       - name: Checkout repository
         uses: actions/checkout@8e8c483db84b4bee98b60c0593521ed34d9990e8 # v6
@@ -32,7 +44,11 @@ jobs:
           set -euo pipefail
 
           REPO="${{ github.repository }}"
-          BRANCH="refs/pull/${{ github.event.pull_request.number }}/merge"
+          if [ -z "${PR_NUMBER:-}" ]; then
+            echo "No PR number available; skipping cache cleanup."
+            exit 0
+          fi
+          BRANCH="refs/pull/${PR_NUMBER}/merge"
 
           echo "Fetching list of cache keys for branch: $BRANCH"
           cacheKeysForPR=$(gh actions-cache list -R "$REPO" -B "$BRANCH" | cut -f 1)
@@ -49,5 +65,3 @@ jobs:
             gh actions-cache delete "$cacheKey" -R "$REPO" -B "$BRANCH" --confirm
           done
           echo "Done"
-        env:
-          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}

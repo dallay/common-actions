@@ -22,7 +22,7 @@ inputs:
   fail-on-error:
     description: "Whether to fail the pipeline if vulnerabilities are found"
     required: false
-    default: "false"
+    default: "true"
 
 outputs:
   scan-result:

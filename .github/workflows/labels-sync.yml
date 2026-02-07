@@ -15,6 +15,10 @@ on:
         type: string
         required: false
         default: ".github/labels.yml"
+    secrets:
+      github-token:
+        description: "GitHub token for syncing labels (defaults to GITHUB_TOKEN)"
+        required: false
 
 permissions:
   contents: read
@@ -33,5 +37,5 @@ jobs:
 
       - uses: crazy-max/ghaction-github-labeler@24d110aa46a59976b8a7f35518cb7f14f434c916 # v5
         with:
-          github-token: ${{ secrets.GITHUB_TOKEN }}
+          github-token: ${{ secrets.github-token || github.token }}
           yaml-file: ${{ inputs.labels-file }}

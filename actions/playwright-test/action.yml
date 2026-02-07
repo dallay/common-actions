@@ -47,8 +47,22 @@ runs:
       shell: bash
       working-directory: ${{ inputs.working-directory }}
       run: |
-        if ! VERSION=$(pnpm list @playwright/test --json 2>/dev/null | jq -r '.[0].devDependencies["@playwright/test"].version // .[0].dependencies["@playwright/test"].version // "latest"' 2>&1); then
-          echo "⚠️ Warning: Failed to parse Playwright version, falling back to 'latest'" >&2
+        if ! command -v pnpm >/dev/null 2>&1; then
+          echo "❌ pnpm not found. Run setup-node before this action." >&2
+          exit 1
+        fi
+
+        VERSION=""
+        if command -v jq >/dev/null 2>&1; then
+          VERSION=$(pnpm list @playwright/test --json 2>/dev/null | jq -r '.[0].devDependencies["@playwright/test"].version // .[0].dependencies["@playwright/test"].version // ""' 2>/dev/null || true)
+        elif command -v node >/dev/null 2>&1; then
+          echo "⚠️ Warning: jq not found; using node to parse Playwright version." >&2
+          VERSION=$(pnpm list @playwright/test --json 2>/dev/null | node -e 'const fs=require("fs");const input=fs.readFileSync(0,"utf8");const data=input?JSON.parse(input):[];const v=data?.[0]?.devDependencies?.["@playwright/test"]?.version||data?.[0]?.dependencies?.["@playwright/test"]?.version||"";process.stdout.write(v);' 2>/dev/null || true)
+        else
+          echo "⚠️ Warning: jq and node not found; falling back to 'latest'." >&2
+        fi
+
+        if [ -z "$VERSION" ] || [ "$VERSION" = "null" ]; then
           VERSION="latest"
         fi
         if [ "$VERSION" = "latest" ]; then

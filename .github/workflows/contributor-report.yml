@@ -1,8 +1,39 @@
+# Reusable workflow: Generate a contributor quality report for PRs
+# Usage:
+#   jobs:
+#     report:
+#       uses: dallay/common-actions/.github/workflows/contributor-report.yml@v1
+#       secrets: inherit
 name: Contributor Report
 
 on:
-  pull_request:
-    types: [opened, reopened, synchronize, edited]
+  workflow_call:
+    inputs:
+      threshold-pr-merge-rate:
+        description: "Minimum PR merge rate (0.0 to 1.0)"
+        type: string
+        required: false
+        default: '0.3'
+      threshold-account-age:
+        description: "Minimum account age in days"
+        type: string
+        required: false
+        default: '30'
+      threshold-positive-reactions:
+        description: "Minimum positive reactions count"
+        type: string
+        required: false
+        default: '1'
+      threshold-negative-reactions:
+        description: "Maximum negative reactions count allowed"
+        type: string
+        required: false
+        default: '5'
+      on-fail:
+        description: "Action to take on failure (comment, fail, or both)"
+        type: string
+        required: false
+        default: 'comment'
 
 permissions:
   contents: read
@@ -16,11 +47,9 @@ jobs:
       - name: Check Contributor Report
         uses: jdiegosierra/contributor-report@bcfc4dc20034d8c1793d41e394ee356c2dbcd0a9
         with:
-          github-token: ${{ secrets.GITHUB_TOKEN }}
-          # Individual thresholds
-          threshold-pr-merge-rate: '0.3'
-          threshold-account-age: '30'
-          threshold-positive-reactions: '1'
-          threshold-negative-reactions: '5'
-          # Action on fail
-          on-fail: 'comment'
+          github-token: ${{ github.token }}
+          threshold-pr-merge-rate: ${{ inputs.threshold-pr-merge-rate }}
+          threshold-account-age: ${{ inputs.threshold-account-age }}
+          threshold-positive-reactions: ${{ inputs.threshold-positive-reactions }}
+          threshold-negative-reactions: ${{ inputs.threshold-negative-reactions }}
+          on-fail: ${{ inputs.on-fail }}

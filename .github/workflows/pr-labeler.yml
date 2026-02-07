@@ -20,6 +20,10 @@ on:
         type: string
         required: false
         default: ".github/labeler.yml"
+    secrets:
+      github-token:
+        description: "GitHub token for labeling PRs (defaults to GITHUB_TOKEN)"
+        required: false
 
 permissions:
   contents: read
@@ -32,6 +36,6 @@ jobs:
     steps:
       - uses: actions/labeler@634933edcd8ababfe52f92936142cc22ac488b1b # v6
         with:
-          repo-token: ${{ secrets.GITHUB_TOKEN }}
+          repo-token: ${{ secrets.github-token || github.token }}
           sync-labels: ${{ inputs.sync-labels }}
           configuration-path: ${{ inputs.configuration-path }}

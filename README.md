@@ -19,7 +19,7 @@ common-actions/
 │   ├── codecov/action.yml                # Upload coverage to Codecov
 │   └── playwright-test/action.yml        # Playwright E2E tests with caching
 │
-└── .github/workflows/                    # Reusable Workflows
+└── .github/workflows/                    # Workflows (reusable + local)
     ├── semantic-pr.yml                   # Lint PR titles (Conventional Commits)
     ├── pr-labeler.yml                    # Path-based PR labeling
     ├── issue-labeler.yml                 # Keyword-based issue labeling
@@ -27,7 +27,8 @@ common-actions/
     ├── semantic-release.yml              # Semantic Release with GitHub App
     ├── stale.yml                         # Close stale issues/PRs
     ├── greetings.yml                     # Welcome first-time contributors
-    └── cleanup-cache.yml                 # Cleanup caches for closed branches
+    ├── cleanup-cache.yml                 # Cleanup caches for closed branches
+    └── release.yml                       # Release this repository
 ```
 
 ## Composite Actions vs Reusable Workflows
@@ -56,6 +57,7 @@ steps:
       # node-version-file: ".nvmrc"  # alternative: read from file
       # cwd: "./frontend"           # optional: working directory for install
       # install-deps: "true"        # optional: run pnpm install (default: true)
+      # ignore-scripts: "true"      # optional: add --ignore-scripts to pnpm install
 ```
 
 ### `actions/setup-buildx`
@@ -125,6 +127,7 @@ steps:
       name: backend-coverage
       slug: owner/repo
       # fail-ci-if-error: "false"  # optional
+      # fail-on-upload-error: "false"  # optional
       # verbose: "false"           # optional
 ```
 
@@ -164,7 +167,7 @@ steps:
       report-name: my-app-security
       category: my-app-trivy
       # severity: "HIGH,CRITICAL"  # optional
-      # fail-on-error: "false"     # optional: fail pipeline on vulnerabilities
+      # fail-on-error: "true"      # optional: fail pipeline on vulnerabilities (default: true)
 ```
 
 **Outputs:** `scan-result` (`success`, `failed`, or `error`), `sarif-file`
@@ -172,6 +175,8 @@ steps:
 ---
 
 ## Reusable Workflows
+
+> Tip: Most reusable workflows accept an optional `github-token` secret to override the default `GITHUB_TOKEN` (e.g., use a GitHub App token). The semantic-release workflow uses its own GitHub App credentials.
 
 ### `semantic-pr.yml` — Lint PR Titles
 
@@ -188,6 +193,8 @@ jobs:
   lint:
     uses: dallay/common-actions/.github/workflows/semantic-pr.yml@v1
     secrets: inherit
+    # secrets:
+    #   github-token: ${{ secrets.GITHUB_TOKEN }}  # optional override
     # with:
     #   skip-bot: "dependabot[bot]"  # optional, this is the default
 ```
@@ -207,6 +214,8 @@ jobs:
   label:
     uses: dallay/common-actions/.github/workflows/pr-labeler.yml@v1
     secrets: inherit
+    # secrets:
+    #   github-token: ${{ secrets.GITHUB_TOKEN }}  # optional override
     # with:
     #   sync-labels: true                          # optional
     #   configuration-path: ".github/labeler.yml"  # optional
@@ -227,6 +236,8 @@ jobs:
   label:
     uses: dallay/common-actions/.github/workflows/issue-labeler.yml@v1
     secrets: inherit
+    # secrets:
+    #   github-token: ${{ secrets.GITHUB_TOKEN }}  # optional override
 ```
 
 ### `labels-sync.yml` — Sync Repository Labels
@@ -246,6 +257,8 @@ jobs:
   sync:
     uses: dallay/common-actions/.github/workflows/labels-sync.yml@v1
     secrets: inherit
+    # secrets:
+    #   github-token: ${{ secrets.GITHUB_TOKEN }}  # optional override
 ```
 
 ### `semantic-release.yml` — Automated Releases
@@ -268,6 +281,8 @@ jobs:
     # with:
     #   node-version: "24.12.0"
     #   dry-run: false
+    #   install-deps: true
+    #   semantic-release-command: "pnpm exec semantic-release"
 
   # Use release outputs in downstream jobs
   deploy:
@@ -279,6 +294,8 @@ jobs:
 ```
 
 **Outputs:** `new-release-published`, `new-release-version`, `new-release-major-version`, `new-release-minor-version`, `new-release-patch-version`, `new-release-git-tag`
+
+> This repo ships a local release workflow at `.github/workflows/release.yml` that calls the reusable semantic-release workflow using `npx semantic-release` and the `.releaserc.json` config.
 
 ### `stale.yml` — Close Stale Issues/PRs
 
@@ -295,6 +312,8 @@ jobs:
   stale:
     uses: dallay/common-actions/.github/workflows/stale.yml@v1
     secrets: inherit
+    # secrets:
+    #   github-token: ${{ secrets.GITHUB_TOKEN }}  # optional override
     # with:
     #   days-before-stale: 120
     #   days-before-close: 60
@@ -314,9 +333,32 @@ jobs:
   greet:
     uses: dallay/common-actions/.github/workflows/greetings.yml@v1
     secrets: inherit
+    # secrets:
+    #   github-token: ${{ secrets.GITHUB_TOKEN }}  # optional override
     # with:
     #   issue-message: "Thanks for opening this issue!"
     #   pr-message: "Thanks for your contribution!"
+```
+
+### `contributor-report.yml` — Contributor Quality Report
+
+Generates a quality report for PR contributors based on merge rate, account age, and reactions.
+
+```yaml
+# .github/workflows/contributor-report.yml
+name: Contributor Report
+on:
+  pull_request:
+    types: [opened, reopened, synchronize, edited]
+
+jobs:
+  report:
+    uses: dallay/common-actions/.github/workflows/contributor-report.yml@v1
+    secrets: inherit
+    # with:
+    #   threshold-pr-merge-rate: '0.3'
+    #   threshold-account-age: '30'
+    #   on-fail: 'comment'
 ```
 
 ### `cleanup-cache.yml` — Cleanup Branch Caches
@@ -334,6 +376,10 @@ jobs:
   cleanup:
     uses: dallay/common-actions/.github/workflows/cleanup-cache.yml@v1
     secrets: inherit
+    # secrets:
+    #   github-token: ${{ secrets.GITHUB_TOKEN }}  # optional override
+    # with:
+    #   pr-number: ${{ github.event.pull_request.number }}  # optional override
 ```
 
 ---
