@@ -1,0 +1,26 @@
+name: Contributor Report
+
+on:
+  pull_request:
+    types: [opened, reopened, synchronize, edited]
+
+permissions:
+  contents: read
+  pull-requests: write
+
+jobs:
+  check-contributor:
+    name: Contributor Quality Report
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check Contributor Report
+        uses: jdiegosierra/contributor-report@bcfc4dc20034d8c1793d41e394ee356c2dbcd0a9
+        with:
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+          # Individual thresholds
+          threshold-pr-merge-rate: '0.3'
+          threshold-account-age: '30'
+          threshold-positive-reactions: '1'
+          threshold-negative-reactions: '5'
+          # Action on fail
+          on-fail: 'comment'
