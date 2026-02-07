@@ -1,0 +1,36 @@
+# Reusable workflow: Auto-label issues based on title/body keywords
+# Requires a .github/issue-labeler-config.yml in the CALLER repo.
+# Usage:
+#   jobs:
+#     label:
+#       uses: dallay/common-actions/.github/workflows/issue-labeler.yml@v1
+#       secrets: inherit
+name: Issue Labeler
+
+on:
+  workflow_call:
+    inputs:
+      configuration-path:
+        description: "Path to the issue labeler configuration file in the caller repo"
+        type: string
+        required: false
+        default: ".github/issue-labeler-config.yml"
+      enable-versioned-regex:
+        description: "Enable versioned regex matching"
+        type: boolean
+        required: false
+        default: false
+
+permissions:
+  issues: write
+
+jobs:
+  label:
+    name: Auto-label issues
+    runs-on: ubuntu-latest
+    steps:
+      - uses: github/issue-labeler@3431626a3aa0d4dd8cb7e3e8a03c95e45aa89d21 # v3
+        with:
+          repo-token: ${{ secrets.GITHUB_TOKEN }}
+          configuration-path: ${{ inputs.configuration-path }}
+          enable-versioned-regex: ${{ inputs.enable-versioned-regex }}

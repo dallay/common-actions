@@ -1,0 +1,36 @@
+# Reusable workflow: Welcome first-time contributors
+# Usage:
+#   jobs:
+#     greet:
+#       uses: dallay/common-actions/.github/workflows/greetings.yml@v1
+#       secrets: inherit
+name: Greetings
+
+on:
+  workflow_call:
+    inputs:
+      issue-message:
+        description: "Message for first-time issue creators"
+        type: string
+        required: false
+        default: "Thank you for reporting this issue, welcome to the community and the amazing world of open source!"
+      pr-message:
+        description: "Message for first-time PR authors"
+        type: string
+        required: false
+        default: "Thank you for contributing to this project with this PR, welcome to the community and the amazing world of open source!"
+
+permissions:
+  issues: write
+  pull-requests: write
+
+jobs:
+  greeting:
+    name: Welcome first-time contributor
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/first-interaction@1c4688942c71f71d4f5502a26ea67c331730fa4d # v3
+        with:
+          repo_token: ${{ secrets.GITHUB_TOKEN }}
+          issue_message: ${{ inputs.issue-message }}
+          pr_message: ${{ inputs.pr-message }}

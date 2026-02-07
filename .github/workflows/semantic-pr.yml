@@ -1,0 +1,51 @@
+# Reusable workflow: Lint PR titles against Conventional Commits spec
+# Usage:
+#   jobs:
+#     lint-pr:
+#       uses: dallay/common-actions/.github/workflows/semantic-pr.yml@v1
+#       secrets: inherit
+name: Lint PR title
+
+on:
+  workflow_call:
+    inputs:
+      skip-bot:
+        description: "Bot username to skip validation for (e.g., dependabot[bot])"
+        type: string
+        required: false
+        default: "dependabot[bot]"
+
+permissions:
+  pull-requests: write
+
+jobs:
+  validate:
+    name: Validate PR title
+    runs-on: ubuntu-latest
+    if: github.actor != inputs.skip-bot
+    steps:
+      - uses: amannn/action-semantic-pull-request@48f256284bd46cdaab1048c3721360e808335d50 # v6
+        id: lint_pr_title
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+      - uses: marocchino/sticky-pull-request-comment@773744901bac0e8cbb5a0dc842800d45e9b2b405 # v2
+        if: always() && (steps.lint_pr_title.outputs.error_message != null)
+        with:
+          header: pr-title-lint-error
+          message: |
+            Hey there and thank you for opening this pull request!
+
+            We require pull request titles to follow the [Conventional Commits specification](https://www.conventionalcommits.org/en/v1.0.0/) and it looks like your proposed title needs to be adjusted.
+
+            Details:
+
+            ```
+            ${{ steps.lint_pr_title.outputs.error_message }}
+            ```
+
+      - if: ${{ steps.lint_pr_title.outputs.error_message == null }}
+        uses: marocchino/sticky-pull-request-comment@773744901bac0e8cbb5a0dc842800d45e9b2b405 # v2
+        with:
+          header: pr-title-lint-error
+          delete: true

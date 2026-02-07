@@ -1,0 +1,37 @@
+# Reusable workflow: Synchronize GitHub labels from a YAML config file
+# Requires a .github/labels.yml in the CALLER repo.
+# Usage:
+#   jobs:
+#     sync:
+#       uses: dallay/common-actions/.github/workflows/labels-sync.yml@v1
+#       secrets: inherit
+name: Sync Labels
+
+on:
+  workflow_call:
+    inputs:
+      labels-file:
+        description: "Path to labels YAML file in the caller repo"
+        type: string
+        required: false
+        default: ".github/labels.yml"
+
+permissions:
+  contents: read
+  issues: write
+
+jobs:
+  sync:
+    name: Synchronize Labels
+    runs-on: ubuntu-latest
+    if: ${{ !github.event.repository.fork }}
+    concurrency:
+      group: labels-${{ github.repository }}
+      cancel-in-progress: false
+    steps:
+      - uses: actions/checkout@8e8c483db84b4bee98b60c0593521ed34d9990e8 # v6
+
+      - uses: crazy-max/ghaction-github-labeler@24d110aa46a59976b8a7f35518cb7f14f434c916 # v5
+        with:
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+          yaml-file: ${{ inputs.labels-file }}

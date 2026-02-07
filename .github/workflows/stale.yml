@@ -1,0 +1,61 @@
+# Reusable workflow: Close stale issues and PRs
+# Usage:
+#   jobs:
+#     stale:
+#       uses: dallay/common-actions/.github/workflows/stale.yml@v1
+#       secrets: inherit
+name: Close stale issues/PRs
+
+on:
+  workflow_call:
+    inputs:
+      days-before-stale:
+        description: "Days before marking as stale"
+        type: number
+        required: false
+        default: 120
+      days-before-close:
+        description: "Days after stale before closing"
+        type: number
+        required: false
+        default: 60
+      stale-issue-message:
+        description: "Message posted when marking an issue as stale"
+        type: string
+        required: false
+        default: "This issue was marked as stale due to inactivity. It will be closed automatically if there are no updates."
+      stale-pr-message:
+        description: "Message posted when marking a PR as stale"
+        type: string
+        required: false
+        default: "This PR was marked as stale due to inactivity. It will be closed automatically if there are no updates."
+      exempt-issue-labels:
+        description: "Comma-separated labels to exempt from stale (issues)"
+        type: string
+        required: false
+        default: "priority:high,security"
+      exempt-pr-labels:
+        description: "Comma-separated labels to exempt from stale (PRs)"
+        type: string
+        required: false
+        default: "priority:high,security"
+
+permissions:
+  issues: write
+  pull-requests: write
+
+jobs:
+  stale:
+    name: Close stale issues/PRs
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/stale@5f858e3efba33a5ca4407a664cc011ad407f2008 # v10
+        with:
+          days-before-stale: ${{ inputs.days-before-stale }}
+          days-before-close: ${{ inputs.days-before-close }}
+          stale-issue-message: ${{ inputs.stale-issue-message }}
+          stale-pr-message: ${{ inputs.stale-pr-message }}
+          stale-issue-label: "stale"
+          stale-pr-label: "stale"
+          exempt-issue-labels: ${{ inputs.exempt-issue-labels }}
+          exempt-pr-labels: ${{ inputs.exempt-pr-labels }}

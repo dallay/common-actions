@@ -1,0 +1,53 @@
+# Reusable workflow: Cleanup GitHub Actions caches for closed PR branches
+# Usage:
+#   jobs:
+#     cleanup:
+#       uses: dallay/common-actions/.github/workflows/cleanup-cache.yml@v1
+#       secrets: inherit
+name: Cleanup caches for closed branches
+
+on:
+  workflow_call:
+
+permissions:
+  actions: write
+  contents: read
+
+jobs:
+  cleanup:
+    name: Cleanup PR caches
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@8e8c483db84b4bee98b60c0593521ed34d9990e8 # v6
+
+      - name: Ensure gh-actions-cache extension is installed
+        run: |
+          if ! gh extension list | grep -q actions/gh-actions-cache; then
+            gh extension install actions/gh-actions-cache
+          fi
+
+      - name: Cleanup caches
+        run: |
+          set -euo pipefail
+
+          REPO="${{ github.repository }}"
+          BRANCH="refs/pull/${{ github.event.pull_request.number }}/merge"
+
+          echo "Fetching list of cache keys for branch: $BRANCH"
+          cacheKeysForPR=$(gh actions-cache list -R "$REPO" -B "$BRANCH" | cut -f 1)
+
+          if [ -z "$cacheKeysForPR" ]; then
+            echo "No caches found for this branch."
+            exit 0
+          fi
+
+          set +e
+          echo "Deleting caches..."
+          for cacheKey in $cacheKeysForPR; do
+            echo "  Deleting: $cacheKey"
+            gh actions-cache delete "$cacheKey" -R "$REPO" -B "$BRANCH" --confirm
+          done
+          echo "Done"
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}

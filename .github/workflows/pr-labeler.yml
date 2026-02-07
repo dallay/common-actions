@@ -1,0 +1,37 @@
+# Reusable workflow: Label PRs based on changed file paths
+# Requires a .github/labeler.yml (or .yaml) config in the CALLER repo.
+# Usage:
+#   jobs:
+#     label:
+#       uses: dallay/common-actions/.github/workflows/pr-labeler.yml@v1
+#       secrets: inherit
+name: PR Labeler
+
+on:
+  workflow_call:
+    inputs:
+      sync-labels:
+        description: "Remove labels when matching files are reverted (default: true)"
+        type: boolean
+        required: false
+        default: true
+      configuration-path:
+        description: "Path to the labeler configuration file in the caller repo"
+        type: string
+        required: false
+        default: ".github/labeler.yml"
+
+permissions:
+  contents: read
+  pull-requests: write
+
+jobs:
+  label:
+    name: Label PR
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/labeler@634933edcd8ababfe52f92936142cc22ac488b1b # v6
+        with:
+          repo-token: ${{ secrets.GITHUB_TOKEN }}
+          sync-labels: ${{ inputs.sync-labels }}
+          configuration-path: ${{ inputs.configuration-path }}

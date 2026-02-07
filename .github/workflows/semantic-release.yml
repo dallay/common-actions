@@ -1,0 +1,154 @@
+# Reusable workflow: Semantic Release with GitHub App token
+# Requires semantic-release config (.releaserc.json, etc.) in the CALLER repo.
+# Usage:
+#   jobs:
+#     release:
+#       uses: dallay/common-actions/.github/workflows/semantic-release.yml@v1
+#       secrets:
+#         app-id: ${{ secrets.APP_ID }}
+#         app-private-key: ${{ secrets.APP_PRIVATE_KEY }}
+name: Semantic Release
+
+on:
+  workflow_call:
+    inputs:
+      node-version:
+        description: "Node.js version"
+        type: string
+        required: false
+        default: "24.12.0"
+      dry-run:
+        description: "Perform a dry run (no actual release)"
+        type: boolean
+        required: false
+        default: false
+      extra-plugins:
+        description: "Additional semantic-release plugins (multiline, one per line)"
+        type: string
+        required: false
+        default: |
+          @semantic-release/changelog
+          @semantic-release/git
+          conventional-changelog-conventionalcommits
+      timeout-minutes:
+        description: "Timeout per attempt in minutes"
+        type: number
+        required: false
+        default: 15
+      max-attempts:
+        description: "Max retry attempts"
+        type: number
+        required: false
+        default: 3
+    secrets:
+      app-id:
+        description: "GitHub App ID for generating tokens"
+        required: true
+      app-private-key:
+        description: "GitHub App private key"
+        required: true
+    outputs:
+      new-release-published:
+        description: "Whether a new release was published"
+        value: ${{ jobs.release.outputs.new_release_published }}
+      new-release-version:
+        description: "The new release version"
+        value: ${{ jobs.release.outputs.new_release_version }}
+      new-release-major-version:
+        description: "Major version of the new release"
+        value: ${{ jobs.release.outputs.new_release_major_version }}
+      new-release-minor-version:
+        description: "Minor version of the new release"
+        value: ${{ jobs.release.outputs.new_release_minor_version }}
+      new-release-patch-version:
+        description: "Patch version of the new release"
+        value: ${{ jobs.release.outputs.new_release_patch_version }}
+      new-release-git-tag:
+        description: "Git tag of the new release"
+        value: ${{ jobs.release.outputs.new_release_git_tag }}
+
+permissions:
+  contents: write
+  issues: write
+  pull-requests: write
+
+jobs:
+  release:
+    name: Semantic Release
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    outputs:
+      new_release_published: ${{ steps.semantic.outputs.new_release_published }}
+      new_release_version: ${{ steps.semantic.outputs.new_release_version }}
+      new_release_major_version: ${{ steps.semantic.outputs.new_release_major_version }}
+      new_release_minor_version: ${{ steps.semantic.outputs.new_release_minor_version }}
+      new_release_patch_version: ${{ steps.semantic.outputs.new_release_patch_version }}
+      new_release_git_tag: ${{ steps.semantic.outputs.new_release_git_tag }}
+    steps:
+      - name: Generate GitHub App Token
+        id: app-token
+        uses: actions/create-github-app-token@29824e69f54612133e76f7eaac726eef6c875baf # v2
+        with:
+          app-id: ${{ secrets.app-id }}
+          private-key: ${{ secrets.app-private-key }}
+
+      - name: Checkout repository
+        uses: actions/checkout@8e8c483db84b4bee98b60c0593521ed34d9990e8 # v6
+        with:
+          fetch-depth: 0
+          persist-credentials: false
+          token: ${{ steps.app-token.outputs.token }}
+
+      - name: Setup Node.js
+        uses: actions/setup-node@2028fbc5c25fe9cf00d9f06a71cc4710d4507903 # v6
+        with:
+          node-version: ${{ inputs.node-version }}
+
+      - name: Setup pnpm
+        uses: pnpm/action-setup@41ff72655975bd51cab0327fa583b6e92b6d3061 # v4
+        with:
+          run_install: false
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile --prefer-offline --ignore-scripts
+        env:
+          HUSKY: "0"
+          LEFTHOOK_SKIP: "1"
+
+      - name: Semantic Release
+        id: semantic
+        uses: nick-fields/retry@7152eba30c6575329ac0576536151aca5a72780e # v3
+        with:
+          timeout_minutes: ${{ inputs.timeout-minutes }}
+          max_attempts: ${{ inputs.max-attempts }}
+          retry_wait_seconds: 30
+          command: |
+            set -euo pipefail
+            DRY=""
+            if [ "${{ inputs.dry-run }}" = "true" ]; then
+              DRY="--dry-run"
+            fi
+            pnpm exec semantic-release $DRY
+        env:
+          GITHUB_TOKEN: ${{ steps.app-token.outputs.token }}
+          GIT_AUTHOR_NAME: release-bot[bot]
+          GIT_AUTHOR_EMAIL: release-bot[bot]@users.noreply.github.com
+          GIT_COMMITTER_NAME: release-bot[bot]
+          GIT_COMMITTER_EMAIL: release-bot[bot]@users.noreply.github.com
+          LEFTHOOK: 0
+        continue-on-error: false
+
+      - name: Release Summary
+        if: steps.semantic.outputs.new_release_published == 'true'
+        run: |
+          {
+            echo "## New Release Published"
+            echo ""
+            echo "| Property | Value |"
+            echo "|----------|-------|"
+            echo "| Version  | ${{ steps.semantic.outputs.new_release_version }} |"
+            echo "| Git Tag  | ${{ steps.semantic.outputs.new_release_git_tag }} |"
+            echo "| Major    | ${{ steps.semantic.outputs.new_release_major_version }} |"
+            echo "| Minor    | ${{ steps.semantic.outputs.new_release_minor_version }} |"
+            echo "| Patch    | ${{ steps.semantic.outputs.new_release_patch_version }} |"
+          } >> "$GITHUB_STEP_SUMMARY"

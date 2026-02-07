@@ -1,0 +1,61 @@
+name: "Setup Node.js and pnpm"
+description: "Sets up Node.js and pnpm with caching and dependency installation"
+
+branding:
+  icon: "package"
+  color: "green"
+
+inputs:
+  node-version:
+    description: "Node.js version to use"
+    required: false
+    default: "24.12.0"
+  node-version-file:
+    description: "Path to a file containing the Node.js version (e.g. .nvmrc, .node-version)"
+    required: false
+    default: ""
+  cwd:
+    description: "Working directory for pnpm install. Defaults to repository root"
+    required: false
+    default: "."
+  install-deps:
+    description: "Whether to run pnpm install"
+    required: false
+    default: "true"
+
+runs:
+  using: "composite"
+  steps:
+    - name: Setup pnpm
+      uses: pnpm/action-setup@41ff72655975bd51cab0327fa583b6e92b6d3061 # v4
+      with:
+        run_install: false
+
+    - name: Setup Node.js (from version file)
+      if: inputs.node-version-file != ''
+      uses: actions/setup-node@2028fbc5c25fe9cf00d9f06a71cc4710d4507903 # v6
+      with:
+        node-version-file: ${{ inputs.node-version-file }}
+        cache: "pnpm"
+
+    - name: Setup Node.js (from version input)
+      if: inputs.node-version-file == ''
+      uses: actions/setup-node@2028fbc5c25fe9cf00d9f06a71cc4710d4507903 # v6
+      with:
+        node-version: ${{ inputs.node-version }}
+        cache: "pnpm"
+
+    - name: Install dependencies
+      if: inputs.install-deps == 'true'
+      shell: bash
+      working-directory: ${{ inputs.cwd }}
+      run: pnpm install --frozen-lockfile --prefer-offline --ignore-scripts
+      env:
+        HUSKY: "0"
+        LEFTHOOK_SKIP: "1"
+
+    - name: Verify installation
+      shell: bash
+      run: |
+        echo "node: $(node -v)"
+        echo "pnpm: $(pnpm -v)"
