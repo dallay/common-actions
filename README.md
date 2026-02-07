@@ -159,6 +159,8 @@ steps:
 
 Scans Docker images for vulnerabilities using Trivy. Uploads SARIF reports to the GitHub Security tab and saves results as artifacts.
 
+> Runner note: If you upgrade `github/codeql-action/upload-sarif` or `actions/upload-artifact` to versions that use upload-artifact v6, ensure self-hosted runners are >= 2.327.1 and Node.js 24 is available.
+
 ```yaml
 steps:
   - uses: dallay/common-actions/actions/docker-security-scan@v1
