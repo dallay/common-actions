@@ -1,0 +1,110 @@
+name: "Docker Security Scan"
+description: "Scans Docker images for vulnerabilities using Trivy and uploads SARIF reports to GitHub Security tab"
+
+branding:
+  icon: "shield"
+  color: "blue"
+
+inputs:
+  image-ref:
+    description: "Docker image reference to scan (e.g., ghcr.io/owner/repo/image:tag)"
+    required: true
+  report-name:
+    description: "Name for the security report file (without extension)"
+    required: true
+  category:
+    description: "SARIF category for GitHub Security tab (e.g., backend-trivy, frontend-trivy)"
+    required: true
+  severity:
+    description: "Comma-separated list of severities to scan for"
+    required: false
+    default: "HIGH,CRITICAL"
+  fail-on-error:
+    description: "Whether to fail the pipeline if vulnerabilities are found"
+    required: false
+    default: "false"
+
+outputs:
+  scan-result:
+    description: "Result of the security scan (success, failed, error)"
+    value: ${{ steps.scan-status.outputs.result }}
+  sarif-file:
+    description: "Path to the generated SARIF file"
+    value: ${{ steps.scan-status.outputs.sarif-file }}
+
+runs:
+  using: "composite"
+  steps:
+    - name: Run Trivy vulnerability scanner
+      id: trivy-scan
+      uses: aquasecurity/trivy-action@b6643a29fecd7f34b3597bc6acb0a98b03d33ff8 # 0.33.1
+      continue-on-error: true
+      with:
+        image-ref: ${{ inputs.image-ref }}
+        format: "template"
+        template: "@/contrib/sarif.tpl"
+        output: "${{ inputs.report-name }}.sarif"
+        severity: ${{ inputs.severity }}
+
+    - name: Evaluate scan results
+      id: scan-status
+      shell: bash
+      run: |
+        echo "🔍 Security scan for: ${{ inputs.image-ref }}"
+        echo "   Severity levels: ${{ inputs.severity }}"
+
+        if [ -f "${{ inputs.report-name }}.sarif" ] && [ -s "${{ inputs.report-name }}.sarif" ]; then
+          VULN_COUNT=$(grep -c "\"level\": \"error\"" "${{ inputs.report-name }}.sarif" || echo "0")
+          HIGH_COUNT=$(grep -c "\"HIGH\"" "${{ inputs.report-name }}.sarif" || echo "0")
+          CRITICAL_COUNT=$(grep -c "\"CRITICAL\"" "${{ inputs.report-name }}.sarif" || echo "0")
+
+          echo "   Vulnerabilities — Total: $VULN_COUNT | HIGH: $HIGH_COUNT | CRITICAL: $CRITICAL_COUNT"
+
+          if [ "${{ steps.trivy-scan.outcome }}" = "success" ]; then
+            echo "result=success" >> $GITHUB_OUTPUT
+            echo "sarif-file=${{ inputs.report-name }}.sarif" >> $GITHUB_OUTPUT
+            if [ "$VULN_COUNT" -eq 0 ]; then
+              echo "🎉 No vulnerabilities found matching severity: ${{ inputs.severity }}"
+            else
+              echo "✅ Scan completed — vulnerabilities below threshold"
+            fi
+          elif [ "${{ steps.trivy-scan.outcome }}" = "failure" ]; then
+            echo "result=failed" >> $GITHUB_OUTPUT
+            echo "sarif-file=${{ inputs.report-name }}.sarif" >> $GITHUB_OUTPUT
+            echo "⚠️ Vulnerabilities found ($HIGH_COUNT HIGH, $CRITICAL_COUNT CRITICAL)"
+          else
+            echo "result=error" >> $GITHUB_OUTPUT
+            echo "sarif-file=${{ inputs.report-name }}.sarif" >> $GITHUB_OUTPUT
+            echo "❌ Scan encountered an error but produced partial output"
+          fi
+        else
+          echo "result=error" >> $GITHUB_OUTPUT
+          echo "sarif-file=" >> $GITHUB_OUTPUT
+          echo "❌ No SARIF file produced — check image reference and registry access"
+        fi
+
+    - name: Upload SARIF to GitHub Security tab
+      if: always() && steps.scan-status.outputs.sarif-file != ''
+      uses: github/codeql-action/upload-sarif@cf1bb45a277cb3c205638b2cd5c984db1c46a412 # v4
+      continue-on-error: true
+      with:
+        sarif_file: ${{ steps.scan-status.outputs.sarif-file }}
+        category: ${{ inputs.category }}
+
+    - name: Upload scan results as artifact
+      if: always() && steps.scan-status.outputs.sarif-file != ''
+      uses: actions/upload-artifact@330a01c490aca151604b8cf639adc76d48f6c5d4 # v5
+      continue-on-error: true
+      with:
+        name: ${{ inputs.report-name }}-scan-results
+        path: ${{ steps.scan-status.outputs.sarif-file }}
+        retention-days: 30
+
+    - name: Fail pipeline if required
+      if: inputs.fail-on-error == 'true' && steps.scan-status.outputs.result != 'success'
+      shell: bash
+      run: |
+        echo "❌ Security scan failed and fail-on-error is enabled"
+        echo "   Result: ${{ steps.scan-status.outputs.result }}"
+        echo "   Review the SARIF report in GitHub Security tab for details"
+        exit 1

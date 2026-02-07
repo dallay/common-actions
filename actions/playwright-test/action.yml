@@ -1,0 +1,150 @@
+name: "Playwright E2E Tests"
+description: "Runs Playwright end-to-end tests with intelligent browser caching and artifact uploads"
+
+branding:
+  icon: "monitor"
+  color: "purple"
+
+inputs:
+  browser:
+    description: "Browser to test (chromium, firefox, webkit, or all)"
+    required: false
+    default: "chromium"
+  headed:
+    description: "Run in headed mode"
+    required: false
+    default: "false"
+  test-command:
+    description: "The pnpm script to run for tests (e.g., test:e2e)"
+    required: false
+    default: "test:e2e"
+  upload-results:
+    description: "Upload test results and traces as artifacts"
+    required: false
+    default: "true"
+  working-directory:
+    description: "Working directory containing the Playwright project"
+    required: false
+    default: "."
+  retention-days:
+    description: "Number of days to retain uploaded artifacts"
+    required: false
+    default: "30"
+
+outputs:
+  tests-status:
+    description: "Test execution status (success or failed)"
+    value: ${{ steps.run-tests.outputs.status }}
+  report-path:
+    description: "Path to test report"
+    value: "${{ inputs.working-directory }}/playwright-report"
+
+runs:
+  using: "composite"
+  steps:
+    - name: Get Playwright version
+      id: playwright-version
+      shell: bash
+      working-directory: ${{ inputs.working-directory }}
+      run: |
+        if ! VERSION=$(pnpm list @playwright/test --json 2>/dev/null | jq -r '.[0].devDependencies["@playwright/test"].version // .[0].dependencies["@playwright/test"].version // "latest"' 2>&1); then
+          echo "⚠️ Warning: Failed to parse Playwright version, falling back to 'latest'" >&2
+          VERSION="latest"
+        fi
+        if [ "$VERSION" = "latest" ]; then
+          echo "⚠️ Warning: Playwright version resolved to 'latest'. This may indicate @playwright/test is not in dependencies." >&2
+        fi
+        echo "version=$VERSION" >> $GITHUB_OUTPUT
+        echo "🎭 Playwright version: $VERSION"
+
+    - name: Cache Playwright browsers
+      id: playwright-cache
+      uses: actions/cache@0057852bfaa89a56745cba8c7296529d2fc39830 # v4
+      with:
+        path: ~/.cache/ms-playwright
+        key: ${{ runner.os }}-playwright-${{ steps.playwright-version.outputs.version }}-${{ inputs.browser }}
+        restore-keys: |
+          ${{ runner.os }}-playwright-${{ steps.playwright-version.outputs.version }}-
+          ${{ runner.os }}-playwright-
+
+    - name: Install Playwright browsers
+      if: steps.playwright-cache.outputs.cache-hit != 'true'
+      shell: bash
+      working-directory: ${{ inputs.working-directory }}
+      run: |
+        echo "📥 Installing Playwright browsers..."
+        if [ "${{ inputs.browser }}" == "all" ]; then
+          pnpm exec playwright install --with-deps
+        else
+          pnpm exec playwright install --with-deps ${{ inputs.browser }}
+        fi
+
+    - name: Install browser dependencies (cached)
+      if: steps.playwright-cache.outputs.cache-hit == 'true'
+      shell: bash
+      working-directory: ${{ inputs.working-directory }}
+      run: |
+        echo "♻️ Using cached browsers, installing system dependencies..."
+        if [ "${{ inputs.browser }}" == "all" ]; then
+          pnpm exec playwright install-deps
+        else
+          pnpm exec playwright install-deps ${{ inputs.browser }}
+        fi
+
+    - name: Run Playwright tests
+      id: run-tests
+      shell: bash
+      working-directory: ${{ inputs.working-directory }}
+      env:
+        CI: true
+      run: |
+        echo "🎭 Running E2E tests..."
+        EXTRA_ARGS=""
+        if [ "${{ inputs.headed }}" == "true" ]; then
+          EXTRA_ARGS="--headed"
+        fi
+        if [ "${{ inputs.browser }}" == "all" ]; then
+          pnpm ${{ inputs.test-command }} $EXTRA_ARGS
+        else
+          pnpm ${{ inputs.test-command }} --project=${{ inputs.browser }} $EXTRA_ARGS
+        fi
+        STATUS=$?
+        if [ $STATUS -eq 0 ]; then
+          echo "status=success" >> $GITHUB_OUTPUT
+          echo "✅ All tests passed"
+        else
+          echo "status=failed" >> $GITHUB_OUTPUT
+          echo "❌ Some tests failed"
+          exit 1
+        fi
+
+    - name: Upload test results
+      if: always() && inputs.upload-results == 'true'
+      uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+      with:
+        name: playwright-report-${{ inputs.browser }}-${{ github.run_number }}
+        path: ${{ inputs.working-directory }}/playwright-report/
+        retention-days: ${{ inputs.retention-days }}
+        if-no-files-found: warn
+
+    - name: Upload test traces
+      if: failure() && inputs.upload-results == 'true'
+      uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+      with:
+        name: playwright-traces-${{ inputs.browser }}-${{ github.run_number }}
+        path: ${{ inputs.working-directory }}/test-results/
+        retention-days: ${{ inputs.retention-days }}
+        if-no-files-found: warn
+
+    - name: Generate test summary
+      if: always()
+      shell: bash
+      run: |
+        echo "## 🎭 E2E Tests Summary" >> $GITHUB_STEP_SUMMARY
+        echo "" >> $GITHUB_STEP_SUMMARY
+        echo "- **Browser**: ${{ inputs.browser }}" >> $GITHUB_STEP_SUMMARY
+        echo "- **Status**: ${{ steps.run-tests.outputs.status == 'success' && '✅ Passed' || '❌ Failed' }}" >> $GITHUB_STEP_SUMMARY
+        echo "- **Mode**: ${{ inputs.headed == 'true' && 'Headed' || 'Headless' }}" >> $GITHUB_STEP_SUMMARY
+        if [ -f "${{ inputs.working-directory }}/playwright-report/index.html" ]; then
+          echo "- **Report**: Available in artifacts" >> $GITHUB_STEP_SUMMARY
+        fi

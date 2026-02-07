@@ -1,0 +1,36 @@
+name: "Setup Java and Gradle"
+description: "Sets up Java JDK and Gradle with dependency caching"
+
+branding:
+  icon: "coffee"
+  color: "orange"
+
+inputs:
+  java-version:
+    description: "Java version to use"
+    required: false
+    default: "24"
+  distribution:
+    description: "Java distribution to use (temurin, corretto, zulu, etc.)"
+    required: false
+    default: "temurin"
+  cache:
+    description: "Build tool cache to use (gradle, maven, sbt). Set to empty string to disable."
+    required: false
+    default: "gradle"
+
+runs:
+  using: "composite"
+  steps:
+    - name: Set up JDK ${{ inputs.java-version }} (${{ inputs.distribution }})
+      uses: actions/setup-java@dded0888837ed1f317902acf8a20df0ad188d165 # v5
+      with:
+        java-version: ${{ inputs.java-version }}
+        distribution: ${{ inputs.distribution }}
+        cache: ${{ inputs.cache }}
+
+    - name: Verify installation
+      shell: bash
+      run: |
+        echo "java: $(java -version 2>&1 | head -1)"
+        echo "javac: $(javac -version 2>&1)"

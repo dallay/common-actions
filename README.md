@@ -10,20 +10,24 @@ This repository provides **composite actions** and **reusable workflows** that s
 
 ```
 common-actions/
-├── actions/                          # Composite Actions
-│   ├── setup-node/action.yml         # Node.js + pnpm setup with caching
-│   ├── setup-buildx/action.yml       # QEMU + Docker Buildx for multi-arch
-│   └── docker-build-push/action.yml  # Multi-registry Docker build & push
+├── actions/                              # Composite Actions
+│   ├── setup-node/action.yml             # Node.js + pnpm setup with caching
+│   ├── setup-java/action.yml             # Java + Gradle setup with caching
+│   ├── setup-buildx/action.yml           # QEMU + Docker Buildx for multi-arch
+│   ├── docker-build-push/action.yml      # Multi-registry Docker build & push
+│   ├── docker-security-scan/action.yml   # Trivy vulnerability scanning + SARIF
+│   ├── codecov/action.yml                # Upload coverage to Codecov
+│   └── playwright-test/action.yml        # Playwright E2E tests with caching
 │
-└── .github/workflows/                # Reusable Workflows
-    ├── semantic-pr.yml               # Lint PR titles (Conventional Commits)
-    ├── pr-labeler.yml                # Path-based PR labeling
-    ├── issue-labeler.yml             # Keyword-based issue labeling
-    ├── labels-sync.yml               # Sync labels from YAML config
-    ├── semantic-release.yml          # Semantic Release with GitHub App
-    ├── stale.yml                     # Close stale issues/PRs
-    ├── greetings.yml                 # Welcome first-time contributors
-    └── cleanup-cache.yml             # Cleanup caches for closed branches
+└── .github/workflows/                    # Reusable Workflows
+    ├── semantic-pr.yml                   # Lint PR titles (Conventional Commits)
+    ├── pr-labeler.yml                    # Path-based PR labeling
+    ├── issue-labeler.yml                 # Keyword-based issue labeling
+    ├── labels-sync.yml                   # Sync labels from YAML config
+    ├── semantic-release.yml              # Semantic Release with GitHub App
+    ├── stale.yml                         # Close stale issues/PRs
+    ├── greetings.yml                     # Welcome first-time contributors
+    └── cleanup-cache.yml                 # Cleanup caches for closed branches
 ```
 
 ## Composite Actions vs Reusable Workflows
@@ -92,6 +96,78 @@ steps:
 ```
 
 **Outputs:** `tags`, `digest`, `image-id`
+
+### `actions/setup-java`
+
+Sets up Java JDK and Gradle with dependency caching.
+
+```yaml
+steps:
+  - uses: actions/checkout@v6
+  - uses: dallay/common-actions/actions/setup-java@v1
+    with:
+      java-version: "24"       # optional, this is the default
+      distribution: "temurin"  # optional (temurin, corretto, zulu, etc.)
+      # cache: "gradle"        # optional: gradle (default), maven, sbt, or "" to disable
+```
+
+### `actions/codecov`
+
+Uploads code coverage reports to Codecov with graceful failure handling. Skips upload if no token is provided.
+
+```yaml
+steps:
+  - uses: dallay/common-actions/actions/codecov@v1
+    with:
+      codecov-token: ${{ secrets.CODECOV_TOKEN }}
+      files: "**/build/reports/jacoco/test/jacocoTestReport.xml"
+      flags: backend
+      name: backend-coverage
+      slug: owner/repo
+      # fail-ci-if-error: "false"  # optional
+      # verbose: "false"           # optional
+```
+
+**Outputs:** `upload-failed` (boolean string)
+
+### `actions/playwright-test`
+
+Runs Playwright E2E tests with intelligent browser caching, artifact uploads, and step summary.
+
+> **Prerequisite:** Node.js and pnpm must be set up before using this action. Use `actions/setup-node` first.
+
+```yaml
+steps:
+  - uses: actions/checkout@v6
+  - uses: dallay/common-actions/actions/setup-node@v1
+  - uses: dallay/common-actions/actions/playwright-test@v1
+    with:
+      browser: chromium              # optional: chromium (default), firefox, webkit, or all
+      # working-directory: "."       # optional: directory with playwright config
+      # test-command: "test:e2e"     # optional: pnpm script to run
+      # headed: "false"              # optional
+      # upload-results: "true"       # optional: upload report + traces
+      # retention-days: "30"         # optional
+```
+
+**Outputs:** `tests-status` (`success` or `failed`), `report-path`
+
+### `actions/docker-security-scan`
+
+Scans Docker images for vulnerabilities using Trivy. Uploads SARIF reports to the GitHub Security tab and saves results as artifacts.
+
+```yaml
+steps:
+  - uses: dallay/common-actions/actions/docker-security-scan@v1
+    with:
+      image-ref: ghcr.io/owner/repo/my-app:latest
+      report-name: my-app-security
+      category: my-app-trivy
+      # severity: "HIGH,CRITICAL"  # optional
+      # fail-on-error: "false"     # optional: fail pipeline on vulnerabilities
+```
+
+**Outputs:** `scan-result` (`success`, `failed`, or `error`), `sarif-file`
 
 ---
 

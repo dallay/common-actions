@@ -1,6 +1,38 @@
 {
   "$schema": "https://docs.renovatebot.com/renovate-schema.json",
   "extends": [
-    "config:recommended"
+    "config:best-practices",
+    "schedule:weekly",
+    ":semanticCommits",
+    ":semanticCommitTypeAll(chore)"
+  ],
+  "labels": ["dependencies"],
+  "prHourlyLimit": 5,
+  "prConcurrentLimit": 10,
+  "platformAutomerge": true,
+  "packageRules": [
+    {
+      "description": "Group all GitHub Actions digest/patch updates and automerge",
+      "matchManagers": ["github-actions"],
+      "matchUpdateTypes": ["digest", "pin", "patch"],
+      "groupName": "github-actions (digest+patch)",
+      "automerge": true,
+      "schedule": ["before 6am on Monday"]
+    },
+    {
+      "description": "Group all GitHub Actions minor updates and automerge",
+      "matchManagers": ["github-actions"],
+      "matchUpdateTypes": ["minor"],
+      "groupName": "github-actions (minor)",
+      "automerge": true,
+      "schedule": ["before 6am on Monday"]
+    },
+    {
+      "description": "GitHub Actions major updates - separate PRs, manual review",
+      "matchManagers": ["github-actions"],
+      "matchUpdateTypes": ["major"],
+      "automerge": false,
+      "labels": ["dependencies", "breaking"]
+    }
   ]
 }
