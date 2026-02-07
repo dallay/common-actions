@@ -55,6 +55,7 @@ steps:
     with:
       node-version: "24.12.0"    # optional, this is the default
       # node-version-file: ".nvmrc"  # alternative: read from file
+      # cache-dependency-path: "pnpm-lock.yaml"  # optional: override lockfile path
       # cwd: "./frontend"           # optional: working directory for install
       # install-deps: "true"        # optional: run pnpm install (default: true)
       # ignore-scripts: "true"      # optional: add --ignore-scripts to pnpm install
