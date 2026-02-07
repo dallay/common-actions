@@ -16,7 +16,7 @@ jobs:
       - name: Check Contributor Report
         uses: jdiegosierra/contributor-report@bcfc4dc20034d8c1793d41e394ee356c2dbcd0a9
         with:
-          github-token: ${{ secrets.GITHUB_TOKEN }}
+          github-token: ${{ github.token }}
           # Individual thresholds
           threshold-pr-merge-rate: '0.3'
           threshold-account-age: '30'
