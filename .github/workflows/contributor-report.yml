@@ -29,6 +29,11 @@ on:
         type: string
         required: false
         default: '5'
+      trusted-users:
+        description: "Comma-separated list of trusted user accounts (e.g., dependabot[bot],renovate[bot],github-copilot[bot])"
+        type: string
+        required: false
+        default: 'dependabot[bot],renovate[bot],github-copilot[bot]'
       on-fail:
         description: "Action to take on failure (comment, fail, or both)"
         type: string
@@ -52,4 +57,5 @@ jobs:
           threshold-account-age: ${{ inputs.threshold-account-age }}
           threshold-positive-reactions: ${{ inputs.threshold-positive-reactions }}
           threshold-negative-reactions: ${{ inputs.threshold-negative-reactions }}
+          trusted-users: ${{ inputs.trusted-users }}
           on-fail: ${{ inputs.on-fail }}
