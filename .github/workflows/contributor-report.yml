@@ -50,7 +50,7 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - name: Check Contributor Report
-        uses: jdiegosierra/contributor-report@4a818a3b891a36d84c2ad1860565df6884a2fd8e
+        uses: jdiegosierra/contributor-report@e92e3ab844443019fbe7a2d51e07773ddacc6269
         with:
           github-token: ${{ github.token }}
           threshold-pr-merge-rate: ${{ inputs.threshold-pr-merge-rate }}
