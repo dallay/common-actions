@@ -28,7 +28,8 @@ common-actions/
     ├── stale.yml                         # Close stale issues/PRs
     ├── greetings.yml                     # Welcome first-time contributors
     ├── cleanup-cache.yml                 # Cleanup caches for closed branches
-    └── release.yml                       # Release this repository
+    ├── release.yml                       # Release this repository
+    └── pr-size-labeler.yml               # Label PRs by size (XS, S, M, L, XL)
 ```
 
 ## Composite Actions vs Reusable Workflows
@@ -383,6 +384,52 @@ jobs:
     #   github-token: ${{ secrets.GITHUB_TOKEN }}  # optional override
     # with:
     #   pr-number: ${{ github.event.pull_request.number }}  # optional override
+```
+
+### `pr-size-labeler.yml` — Label PRs by Size
+
+Automatically labels PRs based on their size (number of lines changed). Uses [codelytv/pr-size-labeler](https://github.com/CodelyTV/pr-size-labeler) to categorize PRs into XS, S, M, L, or XL.
+
+```yaml
+# .github/workflows/pr-size-labeler.yml
+name: PR Size Labeler
+on:
+  pull_request_target:
+    types: [opened, synchronize, reopened]
+
+jobs:
+  label:
+    uses: dallay/common-actions/.github/workflows/pr-size-labeler.yml@v1
+    secrets: inherit
+    # with:
+    #   github-token: ${{ secrets.GITHUB_TOKEN }}  # optional override
+```
+
+**Size thresholds (default):**
+
+| Label | Max changes |
+|-------|-------------|
+| `size/xs` | 10 |
+| `size/s` | 100 |
+| `size/m` | 500 |
+| `size/l` | 1000 |
+| `size/xl` | > 1000 |
+
+You can customize labels and thresholds by calling the action directly:
+
+```yaml
+jobs:
+  labeler:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: CodelyTV/pr-size-labeler@v1
+        with:
+          xs_label: 'size/xs'
+          xs_max_size: '10'
+          l_label: 'size/l'
+          l_max_size: '1000'
+          fail_if_xl: 'true'
+          files_to_ignore: 'package-lock.json *.lock'
 ```
 
 ---
