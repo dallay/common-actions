@@ -396,6 +396,7 @@ name: PR Size Labeler
 on:
   pull_request_target:
     types: [opened, synchronize, reopened]
+  workflow_call:
 
 jobs:
   label:
@@ -422,7 +423,7 @@ jobs:
   labeler:
     runs-on: ubuntu-latest
     steps:
-      - uses: CodelyTV/pr-size-labeler@v1
+      - uses: CodelyTV/pr-size-labeler@095a41fca88b8764fd9e008ad269bcdb82bb38b9 # v1.10.4
         with:
           xs_label: 'size/xs'
           xs_max_size: '10'

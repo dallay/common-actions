@@ -3,6 +3,7 @@ name: PR Size Labeler
 on:
   pull_request_target:
     types: [opened, synchronize, reopened]
+  workflow_call:
 
 jobs:
   label:
@@ -24,6 +25,3 @@ jobs:
           l_label: 'size/l'
           l_max_size: '1000'
           xl_label: 'size/xl'
-          fail_if_xl: 'false'
-          github_api_url: 'https://api.github.com'
-          files_to_ignore: ''
