@@ -402,8 +402,6 @@ jobs:
   label:
     uses: dallay/common-actions/.github/workflows/pr-size-labeler.yml@v1
     secrets: inherit
-    # with:
-    #   github-token: ${{ secrets.GITHUB_TOKEN }}  # optional override
 ```
 
 **Size thresholds (default):**
