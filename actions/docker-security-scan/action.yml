@@ -54,9 +54,9 @@ runs:
         echo "   Severity levels: ${{ inputs.severity }}"
 
         if [ -f "${{ inputs.report-name }}.sarif" ] && [ -s "${{ inputs.report-name }}.sarif" ]; then
-          VULN_COUNT=$(grep -c "\"level\": \"error\"" "${{ inputs.report-name }}.sarif" || echo "0")
-          HIGH_COUNT=$(grep -c "\"HIGH\"" "${{ inputs.report-name }}.sarif" || echo "0")
-          CRITICAL_COUNT=$(grep -c "\"CRITICAL\"" "${{ inputs.report-name }}.sarif" || echo "0")
+          VULN_COUNT=$(jq '[.runs[].results[] | select(.level=="error")] | length' "${{ inputs.report-name }}.sarif" 2>/dev/null || echo "0")
+          HIGH_COUNT=$(jq '[.runs[].results[].message.text | select(contains("HIGH"))] | length' "${{ inputs.report-name }}.sarif" 2>/dev/null || echo "0")
+          CRITICAL_COUNT=$(jq '[.runs[].results[].message.text | select(contains("CRITICAL"))] | length' "${{ inputs.report-name }}.sarif" 2>/dev/null || echo "0")
 
           echo "   Vulnerabilities — Total: $VULN_COUNT | HIGH: $HIGH_COUNT | CRITICAL: $CRITICAL_COUNT"
 

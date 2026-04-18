@@ -130,7 +130,7 @@ runs:
         else
           echo "status=failed" >> $GITHUB_OUTPUT
           echo "❌ Some tests failed"
-          exit 1
+          exit $STATUS
         fi
 
     - name: Upload test results

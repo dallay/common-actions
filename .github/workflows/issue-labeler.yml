@@ -25,6 +25,10 @@ on:
         description: "GitHub token for labeling issues (defaults to GITHUB_TOKEN)"
         required: false
 
+concurrency:
+  group: ${{ github.workflow }}-${{ github.event.issue.number || github.ref }}
+  cancel-in-progress: true
+
 permissions:
   issues: write
 
