@@ -5,7 +5,7 @@
 #     release:
 #       uses: dallay/common-actions/.github/workflows/semantic-release.yml@v1
 #       secrets:
-#         client-id: ${{ secrets.APP_CLIENT_ID }}
+#         client-id: ${{ secrets.APP_ID }}
 #         app-private-key: ${{ secrets.APP_PRIVATE_KEY }}
 name: Semantic Release
 
