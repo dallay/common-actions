@@ -9,15 +9,19 @@ name: Lint PR title
 on:
   workflow_call:
     inputs:
-      skip-bot:
-        description: "Bot username to skip validation for (e.g., dependabot[bot])"
+      skip-bots:
+        description: "JSON array of bot usernames to skip validation for (e.g. '[\"dependabot[bot]\",\"renovate[bot]\"]')"
         type: string
         required: false
-        default: "dependabot[bot]"
+        default: '["dependabot[bot]","renovate[bot]"]'
     secrets:
       github-token:
         description: "GitHub token for PR title validation and comments (defaults to GITHUB_TOKEN)"
         required: false
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
 
 permissions:
   pull-requests: write
@@ -26,7 +30,7 @@ jobs:
   validate:
     name: Validate PR title
     runs-on: ubuntu-latest
-    if: github.actor != inputs.skip-bot
+    if: ${{ !contains(fromJson(inputs.skip-bots), github.actor) }}
     env:
       GITHUB_TOKEN: ${{ secrets.github-token || github.token }}
     steps:

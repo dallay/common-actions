@@ -1,0 +1,25 @@
+# CODEOWNERS for dallay/common-actions
+#
+# This repository contains shared GitHub Actions and reusable workflows
+# used across the Dallay organization. All changes require review from
+# the infrastructure team.
+#
+# Format: <pattern> <owner> [<owner> ...]
+# Docs: https://docs.github.com/en/repositories/managing-your-repositorys-settings-and-features/customizing-your-repository/about-code-owners
+
+# Default: everything requires infra team review
+* @dallay/infra
+
+# Reusable workflows
+.github/workflows/ @dallay/infra
+
+# Composite actions
+actions/ @dallay/infra
+
+# Dependency management
+renovate.json @dallay/infra
+package.json @dallay/infra
+pnpm-lock.yaml @dallay/infra
+
+# Release config
+.releaserc.json @dallay/infra

@@ -1,24 +1,35 @@
+# Reusable workflow: Label PRs based on the number of lines changed
+# Usage:
+#   jobs:
+#     size-label:
+#       uses: dallay/common-actions/.github/workflows/pr-size-labeler.yml@v1
+#       secrets: inherit
 name: PR Size Labeler
 
 on:
   workflow_call:
     secrets:
-      GITHUB_TOKEN:
+      github-token:
         description: "GitHub token for labeling PRs (defaults to GITHUB_TOKEN)"
         required: false
 
+concurrency:
+  group: ${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  pull-requests: write
+  contents: read
+  issues: write
+
 jobs:
   label:
-    permissions:
-      pull-requests: write
-      contents: read
-      issues: write
     runs-on: ubuntu-latest
     name: Label the PR size
     steps:
       - uses: CodelyTV/pr-size-labeler@095a41fca88b8764fd9e008ad269bcdb82bb38b9 # v1.10.4
         with:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GITHUB_TOKEN: ${{ secrets.github-token || github.token }}
           xs_label: 'size/xs'
           xs_max_size: '10'
           s_label: 'size/s'
@@ -28,3 +39,4 @@ jobs:
           l_label: 'size/l'
           l_max_size: '1000'
           xl_label: 'size/xl'
+          xl_fail: 'false'

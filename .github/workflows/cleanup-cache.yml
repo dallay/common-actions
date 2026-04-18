@@ -18,6 +18,10 @@ on:
         description: "GitHub token for cache cleanup (defaults to GITHUB_TOKEN)"
         required: false
 
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
 permissions:
   actions: write
   contents: read

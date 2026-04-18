@@ -49,32 +49,37 @@ runs:
     - name: Evaluate scan results
       id: scan-status
       shell: bash
+      env:
+        IMAGE_REF: ${{ inputs.image-ref }}
+        SEVERITY: ${{ inputs.severity }}
+        REPORT_NAME: ${{ inputs.report-name }}
+        TRIVY_OUTCOME: ${{ steps.trivy-scan.outcome }}
       run: |
-        echo "🔍 Security scan for: ${{ inputs.image-ref }}"
-        echo "   Severity levels: ${{ inputs.severity }}"
+        echo "🔍 Security scan for: $IMAGE_REF"
+        echo "   Severity levels: $SEVERITY"
 
-        if [ -f "${{ inputs.report-name }}.sarif" ] && [ -s "${{ inputs.report-name }}.sarif" ]; then
-          VULN_COUNT=$(grep -c "\"level\": \"error\"" "${{ inputs.report-name }}.sarif" || echo "0")
-          HIGH_COUNT=$(grep -c "\"HIGH\"" "${{ inputs.report-name }}.sarif" || echo "0")
-          CRITICAL_COUNT=$(grep -c "\"CRITICAL\"" "${{ inputs.report-name }}.sarif" || echo "0")
+        if [ -f "${REPORT_NAME}.sarif" ] && [ -s "${REPORT_NAME}.sarif" ]; then
+          VULN_COUNT=$(jq '[.runs[].results[] | select(.level=="error")] | length' "${REPORT_NAME}.sarif" 2>/dev/null || echo "0")
+          HIGH_COUNT=$(jq '[.runs[].results[].message.text | select(contains("HIGH"))] | length' "${REPORT_NAME}.sarif" 2>/dev/null || echo "0")
+          CRITICAL_COUNT=$(jq '[.runs[].results[].message.text | select(contains("CRITICAL"))] | length' "${REPORT_NAME}.sarif" 2>/dev/null || echo "0")
 
           echo "   Vulnerabilities — Total: $VULN_COUNT | HIGH: $HIGH_COUNT | CRITICAL: $CRITICAL_COUNT"
 
-          if [ "${{ steps.trivy-scan.outcome }}" = "success" ]; then
+          if [ "$TRIVY_OUTCOME" = "success" ]; then
             echo "result=success" >> $GITHUB_OUTPUT
-            echo "sarif-file=${{ inputs.report-name }}.sarif" >> $GITHUB_OUTPUT
+            echo "sarif-file=${REPORT_NAME}.sarif" >> $GITHUB_OUTPUT
             if [ "$VULN_COUNT" -eq 0 ]; then
-              echo "🎉 No vulnerabilities found matching severity: ${{ inputs.severity }}"
+              echo "🎉 No vulnerabilities found matching severity: $SEVERITY"
             else
               echo "✅ Scan completed — vulnerabilities below threshold"
             fi
-          elif [ "${{ steps.trivy-scan.outcome }}" = "failure" ]; then
+          elif [ "$TRIVY_OUTCOME" = "failure" ]; then
             echo "result=failed" >> $GITHUB_OUTPUT
-            echo "sarif-file=${{ inputs.report-name }}.sarif" >> $GITHUB_OUTPUT
+            echo "sarif-file=${REPORT_NAME}.sarif" >> $GITHUB_OUTPUT
             echo "⚠️ Vulnerabilities found ($HIGH_COUNT HIGH, $CRITICAL_COUNT CRITICAL)"
           else
             echo "result=error" >> $GITHUB_OUTPUT
-            echo "sarif-file=${{ inputs.report-name }}.sarif" >> $GITHUB_OUTPUT
+            echo "sarif-file=${REPORT_NAME}.sarif" >> $GITHUB_OUTPUT
             echo "❌ Scan encountered an error but produced partial output"
           fi
         else

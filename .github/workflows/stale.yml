@@ -44,6 +44,10 @@ on:
         description: "GitHub token for stale management (defaults to GITHUB_TOKEN)"
         required: false
 
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: false
+
 permissions:
   issues: write
   pull-requests: write
