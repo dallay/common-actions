@@ -74,7 +74,7 @@ runs:
     - name: Cache Playwright browsers
       id: playwright-cache
       # If upgrading to v5, ensure self-hosted runners are >= 2.327.1.
-      uses: actions/cache@668228422ae6a00e4ad889ee87cd7109ec5666a7 # v5
+      uses: actions/cache@27d5ce7f107fe9357f9df03efb73ab90386fccae # v5
       with:
         path: ~/.cache/ms-playwright
         key: ${{ runner.os }}-playwright-${{ steps.playwright-version.outputs.version }}-${{ inputs.browser }}
@@ -136,7 +136,7 @@ runs:
     - name: Upload test results
       if: always() && inputs.upload-results == 'true'
       # If upgrading to v6, ensure self-hosted runners are >= 2.327.1 and Node.js 24 is available.
-      uses: actions/upload-artifact@bbbca2ddaa5d8feaa63e36b76fdaad77386f024f # v7
+      uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7
       with:
         name: playwright-report-${{ inputs.browser }}-${{ github.run_number }}
         path: ${{ inputs.working-directory }}/playwright-report/
@@ -146,7 +146,7 @@ runs:
     - name: Upload test traces
       if: failure() && inputs.upload-results == 'true'
       # If upgrading to v6, ensure self-hosted runners are >= 2.327.1 and Node.js 24 is available.
-      uses: actions/upload-artifact@bbbca2ddaa5d8feaa63e36b76fdaad77386f024f # v7
+      uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7
       with:
         name: playwright-traces-${{ inputs.browser }}-${{ github.run_number }}
         path: ${{ inputs.working-directory }}/test-results/
