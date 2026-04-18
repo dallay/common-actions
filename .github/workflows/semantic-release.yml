@@ -5,7 +5,7 @@
 #     release:
 #       uses: dallay/common-actions/.github/workflows/semantic-release.yml@v1
 #       secrets:
-#         app-id: ${{ secrets.APP_ID }}
+#         client-id: ${{ secrets.APP_CLIENT_ID }}
 #         app-private-key: ${{ secrets.APP_PRIVATE_KEY }}
 name: Semantic Release
 
@@ -51,8 +51,8 @@ on:
         required: false
         default: 3
     secrets:
-      app-id:
-        description: "GitHub App ID for generating tokens"
+      client-id:
+        description: "GitHub App Client ID for generating tokens"
         required: true
       app-private-key:
         description: "GitHub App private key"
@@ -99,7 +99,7 @@ jobs:
         id: app-token
         uses: actions/create-github-app-token@1b10c78c7865c340bc4f6099eb2f838309f1e8c3 # v3
         with:
-          app-id: ${{ secrets.app-id }}
+          client-id: ${{ secrets.client-id }}
           private-key: ${{ secrets.app-private-key }}
 
       - name: Checkout repository

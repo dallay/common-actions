@@ -14,7 +14,7 @@ jobs:
   release:
     uses: ./.github/workflows/semantic-release.yml
     secrets:
-      app-id: ${{ secrets.APP_ID }}
+      client-id: ${{ secrets.APP_CLIENT_ID }}
       app-private-key: ${{ secrets.APP_PRIVATE_KEY }}
     with:
       install-deps: false
