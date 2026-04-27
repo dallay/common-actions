@@ -37,7 +37,7 @@ jobs:
     name: Auto-label issues
     runs-on: ubuntu-latest
     steps:
-      - uses: github/issue-labeler@3431626a3aa0d4dd8cb7e3e8a03c95e45aa89d21 # v3
+      - uses: github/issue-labeler@c1b0f9f52a63158c4adc09425e858e87b32e9685 # v3.4
         with:
           repo-token: ${{ secrets.github-token || github.token }}
           configuration-path: ${{ inputs.configuration-path }}
