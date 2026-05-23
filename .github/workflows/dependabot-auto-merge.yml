@@ -24,15 +24,14 @@ on:
         description: 'Fallback GitHub token (personal or GITHUB_TOKEN)'
         required: false
 
-permissions:
-  contents: write
-  pull-requests: write
-
 jobs:
   auto-merge:
     runs-on: ubuntu-latest
     if: github.actor == 'dependabot[bot]' || github.actor == 'renovate[bot]' || github.actor == 'dependabot-preview[bot]'
-    
+    permissions:
+      contents: write
+      pull-requests: write
+
     steps:
       - name: Generate GitHub App Token
         id: app-token
@@ -52,49 +51,58 @@ jobs:
 
       - name: Get PR metadata
         id: metadata
-        uses: dependabot/fetch-metadata@v2
+        uses: dependabot/fetch-metadata@21025c705c08248db411dc16f3619e6b5f9ea21a
         with:
           github-token: ${{ steps.set-token.outputs.token }}
+
+      - name: Validate merge target
+        run: |
+          if [[ "${{ inputs.target }}" != "squash" && "${{ inputs.target }}" != "merge" && "${{ inputs.target }}" != "rebase" ]]; then
+            echo "Error: Invalid merge target '${{ inputs.target }}'. Must be one of: squash, merge, rebase"
+            exit 1
+          fi
 
       - name: Auto-approve PR
         if: inputs.approve
         run: |
-          gh pr review "${{ github.event.pull_request.number }}" --approve --body "✅ Auto-approved by workflow (GitHub App)"
+          gh pr review "$PR_NUMBER" --approve --body "✅ Auto-approved by workflow (GitHub App)"
         env:
           GH_TOKEN: ${{ steps.set-token.outputs.token }}
           GH_REPO: ${{ github.repository }}
+          PR_NUMBER: ${{ github.event.pull_request.number }}
 
       - name: Enable auto-merge
         run: |
-          gh pr merge "${{ github.event.pull_request.number }}" --auto --${{ inputs.target }} --delete-branch
+          gh pr merge "$PR_NUMBER" --auto --${{ inputs.target }} --delete-branch
         env:
           GH_TOKEN: ${{ steps.set-token.outputs.token }}
           GH_REPO: ${{ github.repository }}
+          PR_NUMBER: ${{ github.event.pull_request.number }}
 
       - name: Add sticky comment
         if: success()
-        uses: marocchino/sticky-pull-request-comment@v2
+        uses: marocchino/sticky-pull-request-comment@773744901bac0e8cbb5a0dc842800d45e9b2b405
         with:
           header: auto-merge-status
           message: |
-            🤖 **Auto-merge habilitado (GitHub App)**
-            
+            🤖 Auto-merge habilitado (GitHub App)
+
             Este PR será fusionado automáticamente cuando:
             - ✅ Todos los checks requeridos pasen
             - ✅ Las revisiones requeridas estén aprobadas
             - ✅ No haya conflictos de merge
-            
-            Estrategia: `${{ inputs.target }}`
+
+            Estrategia: ${{ inputs.target }}
           GITHUB_TOKEN: ${{ steps.set-token.outputs.token }}
 
       - name: Comment on failure
         if: failure()
-        uses: marocchino/sticky-pull-request-comment@v2
+        uses: marocchino/sticky-pull-request-comment@773744901bac0e8cbb5a0dc842800d45e9b2b405
         with:
           header: auto-merge-status
           message: |
-            ⚠️ **Auto-merge falló**
-            
+            ⚠️ Auto-merge falló
+
             Revisa los logs del workflow para más detalles.
             Puede que necesites resolver conflictos o aprobar manualmente.
           GITHUB_TOKEN: ${{ steps.set-token.outputs.token }}
