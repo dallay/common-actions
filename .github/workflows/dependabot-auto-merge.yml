@@ -35,10 +35,11 @@ jobs:
     steps:
       - name: Generate GitHub App Token
         id: app-token
-        uses: actions/create-github-app-token@v3
+        if: ${{ (secrets.APP_ID != '' || vars.APP_ID != '') && (secrets.APP_PRIVATE_KEY != '' || vars.APP_PRIVATE_KEY != '') }}
+        uses: actions/create-github-app-token@f2acdbd3c0c11b281dd8d7cd543fe3d0e24b7bde
         with:
           app-id: ${{ secrets.APP_ID || vars.APP_ID }}
-          private-key: ${{ secrets.APP_PRIVATE_KEY || secrets.APP_PRIVATE_KEY }}
+          private-key: ${{ secrets.APP_PRIVATE_KEY || vars.APP_PRIVATE_KEY }}
 
       - name: Set Token Environment
         id: set-token
