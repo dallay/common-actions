@@ -57,10 +57,12 @@ jobs:
 
       - name: Validate merge target
         run: |
-          if [[ "${{ inputs.target }}" != "squash" && "${{ inputs.target }}" != "merge" && "${{ inputs.target }}" != "rebase" ]]; then
-            echo "Error: Invalid merge target '${{ inputs.target }}'. Must be one of: squash, merge, rebase"
+          if [[ "$MERGE_TARGET" != "squash" && "$MERGE_TARGET" != "merge" && "$MERGE_TARGET" != "rebase" ]]; then
+            echo "Error: Invalid merge target '$MERGE_TARGET'. Must be one of: squash, merge, rebase"
             exit 1
           fi
+        env:
+          MERGE_TARGET: ${{ inputs.target }}
 
       - name: Auto-approve PR
         if: inputs.approve
@@ -73,11 +75,12 @@ jobs:
 
       - name: Enable auto-merge
         run: |
-          gh pr merge "$PR_NUMBER" --auto --${{ inputs.target }} --delete-branch
+          gh pr merge "$PR_NUMBER" --auto --"$MERGE_TARGET" --delete-branch
         env:
           GH_TOKEN: ${{ steps.set-token.outputs.token }}
           GH_REPO: ${{ github.repository }}
           PR_NUMBER: ${{ github.event.pull_request.number }}
+          MERGE_TARGET: ${{ inputs.target }}
 
       - name: Add sticky comment
         if: success()
@@ -92,8 +95,10 @@ jobs:
             - ✅ Las revisiones requeridas estén aprobadas
             - ✅ No haya conflictos de merge
 
-            Estrategia: ${{ inputs.target }}
+            Estrategia: ${{ env.MERGE_TARGET }}
           GITHUB_TOKEN: ${{ steps.set-token.outputs.token }}
+        env:
+          MERGE_TARGET: ${{ inputs.target }}
 
       - name: Comment on failure
         if: failure()
