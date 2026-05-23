@@ -14,9 +14,15 @@ on:
         type: boolean
         default: true
     secrets:
+      APP_ID:
+        description: 'GitHub App ID (optional if using secrets.token)'
+        required: false
+      APP_PRIVATE_KEY:
+        description: 'GitHub App Private Key (optional if using secrets.token)'
+        required: false
       token:
-        description: 'GitHub token with repo and workflow permissions'
-        required: true
+        description: 'Fallback GitHub token (personal or GITHUB_TOKEN)'
+        required: false
 
 permissions:
   contents: write
@@ -28,25 +34,41 @@ jobs:
     if: github.actor == 'dependabot[bot]' || github.actor == 'renovate[bot]' || github.actor == 'dependabot-preview[bot]'
     
     steps:
+      - name: Generate GitHub App Token
+        id: app-token
+        uses: actions/create-github-app-token@v3
+        with:
+          app-id: ${{ secrets.APP_ID || vars.APP_ID }}
+          private-key: ${{ secrets.APP_PRIVATE_KEY || secrets.APP_PRIVATE_KEY }}
+
+      - name: Set Token Environment
+        id: set-token
+        run: |
+          if [ -n "${{ steps.app-token.outputs.token }}" ]; then
+            echo "token=${{ steps.app-token.outputs.token }}" >> $GITHUB_OUTPUT
+          else
+            echo "token=${{ secrets.token || github.token }}" >> $GITHUB_OUTPUT
+          fi
+
       - name: Get PR metadata
         id: metadata
         uses: dependabot/fetch-metadata@v2
         with:
-          github-token: ${{ secrets.token }}
+          github-token: ${{ steps.set-token.outputs.token }}
 
       - name: Auto-approve PR
         if: inputs.approve
         run: |
-          gh pr review "${{ github.event.pull_request.number }}" --approve --body "✅ Auto-approved by workflow"
+          gh pr review "${{ github.event.pull_request.number }}" --approve --body "✅ Auto-approved by workflow (GitHub App)"
         env:
-          GH_TOKEN: ${{ secrets.token }}
+          GH_TOKEN: ${{ steps.set-token.outputs.token }}
           GH_REPO: ${{ github.repository }}
 
       - name: Enable auto-merge
         run: |
           gh pr merge "${{ github.event.pull_request.number }}" --auto --${{ inputs.target }} --delete-branch
         env:
-          GH_TOKEN: ${{ secrets.token }}
+          GH_TOKEN: ${{ steps.set-token.outputs.token }}
           GH_REPO: ${{ github.repository }}
 
       - name: Add sticky comment
@@ -55,7 +77,7 @@ jobs:
         with:
           header: auto-merge-status
           message: |
-            🤖 **Auto-merge habilitado**
+            🤖 **Auto-merge habilitado (GitHub App)**
             
             Este PR será fusionado automáticamente cuando:
             - ✅ Todos los checks requeridos pasen
@@ -63,7 +85,7 @@ jobs:
             - ✅ No haya conflictos de merge
             
             Estrategia: `${{ inputs.target }}`
-          GITHUB_TOKEN: ${{ secrets.token }}
+          GITHUB_TOKEN: ${{ steps.set-token.outputs.token }}
 
       - name: Comment on failure
         if: failure()
@@ -75,4 +97,4 @@ jobs:
             
             Revisa los logs del workflow para más detalles.
             Puede que necesites resolver conflictos o aprobar manualmente.
-          GITHUB_TOKEN: ${{ secrets.token }}
+          GITHUB_TOKEN: ${{ steps.set-token.outputs.token }}
