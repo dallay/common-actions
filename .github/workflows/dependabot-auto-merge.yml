@@ -44,11 +44,14 @@ jobs:
       - name: Set Token Environment
         id: set-token
         run: |
-          if [ -n "${{ steps.app-token.outputs.token }}" ]; then
-            echo "token=${{ steps.app-token.outputs.token }}" >> $GITHUB_OUTPUT
+          if [ -n "$APP_TOKEN" ]; then
+            echo "token=$APP_TOKEN" >> $GITHUB_OUTPUT
           else
-            echo "token=${{ secrets.token || github.token }}" >> $GITHUB_OUTPUT
+            echo "token=$FALLBACK_TOKEN" >> $GITHUB_OUTPUT
           fi
+        env:
+          APP_TOKEN: ${{ steps.app-token.outputs.token }}
+          FALLBACK_TOKEN: ${{ secrets.token || github.token }}
 
       - name: Get PR metadata
         id: metadata
