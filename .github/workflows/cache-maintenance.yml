@@ -1,0 +1,105 @@
+name: Cache Maintenance
+
+on:
+  workflow_call:
+    inputs:
+      retention-days:
+        description: "Delete caches older than this many days"
+        type: number
+        required: false
+        default: 7
+      cache-types:
+        description: "Which cache types to clean: pnpm, playwright, build, or all"
+        type: string
+        required: false
+        default: "all"
+    secrets:
+      github-token:
+        description: "GitHub token for cache operations (defaults to GITHUB_TOKEN)"
+        required: false
+
+permissions:
+  actions: write
+  contents: read
+
+jobs:
+  cleanup:
+    name: 🧹 Clean Caches
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v6
+
+      - name: Cleanup old caches
+        uses: actions/github-script@v9
+        env:
+          RETENTION_DAYS: ${{ inputs.retention-days }}
+          CACHE_TYPES: ${{ inputs.cache-types }}
+        with:
+          script: |
+            const { owner, repo } = context.repo;
+            const retentionDays = parseInt(process.env.RETENTION_DAYS || '7');
+            const cacheTypes = process.env.CACHE_TYPES || 'all';
+
+            console.log(`🧹 Cleaning ${cacheTypes} caches (${retentionDays}+ days old)...`);
+
+            try {
+              const caches = await github.rest.actions.getActionsCacheList({
+                owner,
+                repo,
+                per_page: 100
+              });
+
+              console.log(`Found ${caches.data.total_count} caches`);
+
+              const cutoffDate = new Date();
+              cutoffDate.setDate(cutoffDate.getDate() - retentionDays);
+
+              let deletedCount = 0;
+              let failedCount = 0;
+
+              for (const cache of caches.data.actions_caches) {
+                const cacheDate = new Date(cache.created_at);
+                const key = String(cache.key || '');
+                const prefix = key.split('-')[0];
+
+                const isType = (type) => prefix === type || key.startsWith(`${type}-`);
+
+                const shouldDelete = (cacheTypes === 'all') ||
+                  (cacheTypes.split(',').some(t => isType(t.trim())));
+
+                if (shouldDelete && cacheDate < cutoffDate) {
+                  try {
+                    await github.rest.actions.deleteActionsCacheById({
+                      owner,
+                      repo,
+                      cache_id: cache.id
+                    });
+                    console.log(`✅ Deleted cache: ${cache.key}`);
+                    deletedCount++;
+                  } catch (error) {
+                    console.log(`⚠️ Failed to delete cache ${cache.key}: ${error.message}`);
+                    failedCount++;
+                  }
+                }
+              }
+
+              console.log(`🎉 Cleaned ${deletedCount} old caches (${failedCount} failures)`);
+
+              core.summary
+                .addHeading('🧹 Cache Maintenance Report')
+                .addTable([
+                  [{ data: 'Metric', header: true }, { data: 'Value', header: true }],
+                  ['Total Caches', caches.data.total_count.toString()],
+                  ['Deleted Caches', deletedCount.toString()],
+                  ['Failed Deletions', failedCount.toString()],
+                  ['Cache Types', cacheTypes],
+                  ['Retention Period', `${retentionDays} days`]
+                ])
+                .write();
+
+            } catch (error) {
+              console.error('Error cleaning caches:', error);
+              core.setFailed(error.message);
+            }
