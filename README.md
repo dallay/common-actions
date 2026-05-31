@@ -28,6 +28,8 @@ common-actions/
     ├── stale.yml                         # Close stale issues/PRs
     ├── greetings.yml                     # Welcome first-time contributors
     ├── cleanup-cache.yml                 # Cleanup caches for closed branches
+    ├── cache-maintenance.yml             # Cleanup caches by age/type (workflow_call)
+    ├── dependabot-auto-merge.yml         # Auto-merge Dependabot PRs (workflow_call)
     ├── release.yml                       # Release this repository
     └── pr-size-labeler.yml               # Label PRs by size (XS, S, M, L, XL)
 ```
@@ -386,6 +388,40 @@ jobs:
     #   pr-number: ${{ github.event.pull_request.number }}  # optional override
 ```
 
+### `cache-maintenance.yml` — Cleanup Caches by Age and Type
+
+Cleans up GitHub Actions caches older than a configurable retention period. Supports filtering by cache type (pnpm, playwright, build, or all). Outputs a summary table with deletion counts.
+
+> Unlike `cleanup-cache.yml` (which targets a specific PR branch), this workflow cleans **all** caches across the repository based on age and optional type prefix.
+
+```yaml
+# .github/workflows/cache-maintenance.yml
+name: Cache Maintenance
+on:
+  workflow_dispatch:
+    inputs:
+      retention-days:
+        description: "Delete caches older than this many days"
+        type: number
+        required: false
+        default: 7
+      cache-types:
+        description: "Which cache types to clean: pnpm, playwright, build, or all"
+        type: string
+        required: false
+        default: "all"
+  schedule:
+    - cron: "0 3 * * *"  # Run daily at 3 AM
+
+jobs:
+  cleanup:
+    uses: dallay/common-actions/.github/workflows/cache-maintenance.yml@v1
+    secrets: inherit
+    # with:
+    #   retention-days: 7
+    #   cache-types: "all"
+```
+
 ### `pr-size-labeler.yml` — Label PRs by Size
 
 Automatically labels PRs based on their size (number of lines changed). Uses [codelytv/pr-size-labeler](https://github.com/CodelyTV/pr-size-labeler) to categorize PRs into XS, S, M, L, or XL.
@@ -429,6 +465,46 @@ jobs:
           l_max_size: '1000'
           fail_if_xl: 'true'
           files_to_ignore: 'package-lock.json *.lock'
+```
+
+### `dependabot-auto-merge.yml` — Auto-Merge Dependabot PRs
+
+Automatically approves and merges Dependabot (and Renovate) PRs once all checks pass. Supports GitHub App authentication for merged commits and posts sticky status comments on the PR.
+
+```yaml
+# .github/workflows/dependabot-auto-merge.yml
+name: Dependabot Auto-Merge
+on:
+  workflow_call:
+    inputs:
+      target:
+        description: 'Merge strategy: squash, merge, or rebase'
+        required: false
+        type: string
+        default: 'squash'
+      approve:
+        description: 'Auto-approve the PR before merging'
+        required: false
+        type: boolean
+        default: true
+    secrets:
+      APP_ID:
+        description: 'GitHub App ID (optional)'
+        required: false
+      APP_PRIVATE_KEY:
+        description: 'GitHub App Private Key (optional)'
+        required: false
+      token:
+        description: 'Fallback GitHub token'
+        required: false
+
+jobs:
+  auto-merge:
+    uses: dallay/common-actions/.github/workflows/dependabot-auto-merge.yml@v1
+    secrets: inherit
+    # with:
+    #   target: squash
+    #   approve: true
 ```
 
 ---
