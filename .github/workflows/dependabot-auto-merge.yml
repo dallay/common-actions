@@ -35,19 +35,21 @@ jobs:
     steps:
       - name: Generate GitHub App Token
         id: app-token
-        if: ${{ (secrets.APP_ID != '' || vars.APP_ID != '') && (secrets.APP_PRIVATE_KEY != '' || vars.APP_PRIVATE_KEY != '') }}
+        if: ${{ (secrets.APP_ID != '' && secrets.APP_PRIVATE_KEY != '') || (vars.APP_ID != '' && vars.APP_PRIVATE_KEY != '') }}
         uses: actions/create-github-app-token@f2acdbd3c0c11b281dd8d7cd543fe3d0e24b7bde
         with:
           app-id: ${{ secrets.APP_ID || vars.APP_ID }}
           private-key: ${{ secrets.APP_PRIVATE_KEY || vars.APP_PRIVATE_KEY }}
 
-      - name: Set Token Environment
-        id: set-token
+      - name: Determine token source
+        id: token-source
         run: |
           if [ -n "$APP_TOKEN" ]; then
-            echo "token=$APP_TOKEN" >> $GITHUB_OUTPUT
+            echo "token=$APP_TOKEN" >> "$GITHUB_OUTPUT"
+            echo "source=app" >> "$GITHUB_OUTPUT"
           else
-            echo "token=$FALLBACK_TOKEN" >> $GITHUB_OUTPUT
+            echo "token=$FALLBACK_TOKEN" >> "$GITHUB_OUTPUT"
+            echo "source=fallback" >> "$GITHUB_OUTPUT"
           fi
         env:
           APP_TOKEN: ${{ steps.app-token.outputs.token }}
@@ -57,7 +59,7 @@ jobs:
         id: metadata
         uses: dependabot/fetch-metadata@21025c705c08248db411dc16f3619e6b5f9ea21a
         with:
-          github-token: ${{ steps.set-token.outputs.token }}
+          github-token: ${{ steps.token-source.outputs.token }}
 
       - name: Validate merge target
         run: |
@@ -71,17 +73,23 @@ jobs:
       - name: Auto-approve PR
         if: inputs.approve
         run: |
-          gh pr review "$PR_NUMBER" --approve --body "✅ Auto-approved by workflow (GitHub App)"
+          if [ "$TOKEN_SOURCE" = "app" ]; then
+            SOURCE_TEXT="GitHub App"
+          else
+            SOURCE_TEXT="fallback token"
+          fi
+          gh pr review "$PR_NUMBER" --approve --body "✅ Auto-approved by workflow ($SOURCE_TEXT)"
         env:
-          GH_TOKEN: ${{ steps.set-token.outputs.token }}
+          GH_TOKEN: ${{ steps.token-source.outputs.token }}
           GH_REPO: ${{ github.repository }}
           PR_NUMBER: ${{ github.event.pull_request.number }}
+          TOKEN_SOURCE: ${{ steps.token-source.outputs.source }}
 
       - name: Enable auto-merge
         run: |
           gh pr merge "$PR_NUMBER" --auto --"$MERGE_TARGET" --delete-branch
         env:
-          GH_TOKEN: ${{ steps.set-token.outputs.token }}
+          GH_TOKEN: ${{ steps.token-source.outputs.token }}
           GH_REPO: ${{ github.repository }}
           PR_NUMBER: ${{ github.event.pull_request.number }}
           MERGE_TARGET: ${{ inputs.target }}
@@ -92,7 +100,7 @@ jobs:
         with:
           header: auto-merge-status
           message: |
-            🤖 Auto-merge habilitado (GitHub App)
+            🤖 Auto-merge habilitado (${{ steps.token-source.outputs.source == 'app' && 'GitHub App' || 'fallback token' }})
 
             Este PR será fusionado automáticamente cuando:
             - ✅ Todos los checks requeridos pasen
@@ -100,7 +108,7 @@ jobs:
             - ✅ No haya conflictos de merge
 
             Estrategia: ${{ env.MERGE_TARGET }}
-          GITHUB_TOKEN: ${{ steps.set-token.outputs.token }}
+          GITHUB_TOKEN: ${{ steps.token-source.outputs.token }}
         env:
           MERGE_TARGET: ${{ inputs.target }}
 
@@ -114,4 +122,4 @@ jobs:
 
             Revisa los logs del workflow para más detalles.
             Puede que necesites resolver conflictos o aprobar manualmente.
-          GITHUB_TOKEN: ${{ steps.set-token.outputs.token }}
+          GITHUB_TOKEN: ${{ steps.token-source.outputs.token }}
