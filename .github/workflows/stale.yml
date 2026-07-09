@@ -29,6 +29,16 @@ on:
         type: string
         required: false
         default: "This PR was marked as stale due to inactivity. It will be closed automatically if there are no updates."
+      close-issue-message:
+        description: "Message posted when closing an issue"
+        type: string
+        required: false
+        default: "This issue has been automatically closed due to inactivity."
+      close-pr-message:
+        description: "Message posted when closing a PR"
+        type: string
+        required: false
+        default: "This pull request has been automatically closed due to inactivity."
       exempt-issue-labels:
         description: "Comma-separated labels to exempt from stale (issues)"
         type: string
@@ -64,6 +74,8 @@ jobs:
           days-before-close: ${{ inputs.days-before-close }}
           stale-issue-message: ${{ inputs.stale-issue-message }}
           stale-pr-message: ${{ inputs.stale-pr-message }}
+          close-issue-message: ${{ inputs.close-issue-message }}
+          close-pr-message: ${{ inputs.close-pr-message }}
           stale-issue-label: "stale"
           stale-pr-label: "stale"
           exempt-issue-labels: ${{ inputs.exempt-issue-labels }}
