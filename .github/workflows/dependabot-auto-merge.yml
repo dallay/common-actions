@@ -37,7 +37,9 @@ jobs:
     if: github.event_name != 'workflow_call'
     runs-on: ubuntu-latest
     steps:
-      - run: echo "Reusable workflow — no work to do for ${{ github.event_name }} events."
+      - env:
+          EVENT_NAME: ${{ github.event_name }}
+        run: echo "Reusable workflow — no work to do for $EVENT_NAME events."
 
   auto-merge:
     runs-on: ubuntu-latest
