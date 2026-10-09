@@ -1,0 +1,88 @@
+# Tests for composite actions in this repo.
+# Each job runs the action with minimal smoke inputs to catch regressions in
+# action.yml syntax, SHA pins, or default behavior.
+#
+# This workflow runs on:
+#   - push to main (catches broken merges)
+#   - pull_request targeting main (catches broken PRs)
+#   - workflow_dispatch (manual)
+#
+# It does NOT exercise real projects — it only verifies the action setup
+# itself completes successfully. Use the actions in real repos for e2e tests.
+
+name: Test composite actions
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'actions/**'
+      - '.github/workflows/test-actions.yml'
+  pull_request:
+    branches: [main]
+    paths:
+      - 'actions/**'
+      - '.github/workflows/test-actions.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  test-setup-node:
+    name: setup-node (default pnpm v12)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+      - name: Smoke test
+        uses: ./actions/setup-node
+        with:
+          install-deps: "false"
+
+  test-setup-java:
+    name: setup-java (default Java 24, Temurin)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+      - name: Smoke test
+        uses: ./actions/setup-java
+        with:
+          cache: ""
+
+  test-setup-buildx:
+    name: setup-buildx (defaults)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+      - name: Smoke test
+        uses: ./actions/setup-buildx
+
+  test-setup-rust:
+    name: setup-rust (stable + clippy/rustfmt + cache)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+      - name: Smoke test
+        uses: ./actions/setup-rust
+
+  test-setup-python:
+    name: setup-python (pip cache)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+      - name: Smoke test
+        uses: ./actions/setup-python
+        with:
+          cache: ""
+          install-deps: "false"
+
+  test-setup-python-uv:
+    name: setup-python (uv cache)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+      - name: Smoke test
+        uses: ./actions/setup-python
+        with:
+          cache: "uv"
+          install-deps: "false"

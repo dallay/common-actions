@@ -13,6 +13,8 @@ common-actions/
 ├── actions/                              # Composite Actions
 │   ├── setup-node/action.yml             # Node.js + pnpm setup with caching
 │   ├── setup-java/action.yml             # Java + Gradle setup with caching
+│   ├── setup-rust/action.yml             # Rust toolchain + caching
+│   ├── setup-python/action.yml           # Python + pip/uv caching
 │   ├── setup-buildx/action.yml           # QEMU + Docker Buildx for multi-arch
 │   ├── docker-build-push/action.yml      # Multi-registry Docker build & push
 │   ├── docker-security-scan/action.yml   # Trivy vulnerability scanning + SARIF
@@ -31,7 +33,8 @@ common-actions/
     ├── cache-maintenance.yml             # Cleanup caches by age/type (workflow_call)
     ├── dependabot-auto-merge.yml         # Auto-merge Dependabot PRs (workflow_call)
     ├── release.yml                       # Release this repository
-    └── pr-size-labeler.yml               # Label PRs by size (XS, S, M, L, XL)
+    ├── pr-size-labeler.yml               # Label PRs by size (XS, S, M, L, XL)
+    └── test-actions.yml                  # Smoke-test all composite actions
 ```
 
 ## Composite Actions vs Reusable Workflows
@@ -115,6 +118,39 @@ steps:
       java-version: "24"       # optional, this is the default
       distribution: "temurin"  # optional (temurin, corretto, zulu, etc.)
       # cache: "gradle"        # optional: gradle (default), maven, sbt, or "" to disable
+```
+
+### `actions/setup-rust`
+
+Sets up Rust toolchain with optional components, cross-compile targets, and `Swatinem/rust-cache`. Supports optional `sccache` for distributed compilation.
+
+```yaml
+steps:
+  - uses: actions/checkout@v6
+  - uses: dallay/common-actions/actions/setup-rust@v1
+    with:
+      rust-version: "stable"                # optional (stable, nightly, beta, or semver)
+      # components: "clippy,rustfmt"        # optional, this is the default
+      # targets: "wasm32-unknown-unknown"   # optional: cross-compile targets
+      # cache: "true"                       # optional: Swatinem/rust-cache
+      # cache-workspaces: ""                # optional: extra paths for cache key
+      # sccache: "false"                    # optional: distributed compilation
+```
+
+### `actions/setup-python`
+
+Sets up Python with pip or uv caching and optional dependency installation.
+
+```yaml
+steps:
+  - uses: actions/checkout@v6
+  - uses: dallay/common-actions/actions/setup-python@v1
+    with:
+      python-version: "3.12"      # optional, this is the default
+      cache: ""                    # optional: "pip", "uv", or empty (default; disables caching)
+      # cache-dependency-path: "requirements.txt" # required for pip caching; uv paths are relative to working-directory
+      # install-deps: "true"      # optional: install requirements.txt / pyproject.toml
+      # working-directory: "."    # optional
 ```
 
 ### `actions/codecov`
