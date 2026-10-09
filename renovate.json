@@ -6,7 +6,8 @@
     ":semanticCommits",
     ":semanticCommitTypeAll(chore)"
   ],
-  "labels": ["dependencies"],
+  "labels": ["dependencies", "automated"],
+  "assignees": ["yacosta738"],
   "prHourlyLimit": 5,
   "prConcurrentLimit": 10,
   "platformAutomerge": true,
@@ -33,6 +34,39 @@
       "matchUpdateTypes": ["major"],
       "automerge": false,
       "labels": ["dependencies", "breaking"]
+    },
+    {
+      "description": "Group all npm devDependencies digest/patch updates and automerge",
+      "matchManagers": ["npm"],
+      "matchDepTypes": ["devDependencies"],
+      "matchUpdateTypes": ["digest", "pin", "patch"],
+      "groupName": "npm devDependencies (digest+patch)",
+      "automerge": true,
+      "schedule": ["before 6am on Monday"]
+    },
+    {
+      "description": "Group all npm devDependencies minor updates and automerge",
+      "matchManagers": ["npm"],
+      "matchDepTypes": ["devDependencies"],
+      "matchUpdateTypes": ["minor"],
+      "groupName": "npm devDependencies (minor)",
+      "automerge": true,
+      "schedule": ["before 6am on Monday"]
+    },
+    {
+      "description": "npm devDependencies major updates - separate PRs, manual review",
+      "matchManagers": ["npm"],
+      "matchDepTypes": ["devDependencies"],
+      "matchUpdateTypes": ["major"],
+      "automerge": false,
+      "labels": ["dependencies", "breaking"]
+    },
+    {
+      "description": "Ignore digest updates for actions pinned by SHA to silence marocchino false-positive warnings",
+      "matchManagers": ["github-actions"],
+      "matchPackageNames": ["marocchino/sticky-pull-request-comment"],
+      "matchUpdateTypes": ["digest"],
+      "enabled": false
     }
   ]
 }

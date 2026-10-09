@@ -47,28 +47,22 @@ runs:
       shell: bash
       working-directory: ${{ inputs.working-directory }}
       run: |
-        if ! command -v pnpm >/dev/null 2>&1; then
-          echo "❌ pnpm not found. Run setup-node before this action." >&2
+        if ! command -v node >/dev/null 2>&1; then
+          echo "❌ node not found. Run setup-node before this action." >&2
           exit 1
         fi
 
+        # Read @playwright/test version directly from package.json — no pnpm list, no jq required
         VERSION=""
-        if command -v jq >/dev/null 2>&1; then
-          VERSION=$(pnpm list @playwright/test --json 2>/dev/null | jq -r '.[0].devDependencies["@playwright/test"].version // .[0].dependencies["@playwright/test"].version // ""' 2>/dev/null || true)
-        elif command -v node >/dev/null 2>&1; then
-          echo "⚠️ Warning: jq not found; using node to parse Playwright version." >&2
-          VERSION=$(pnpm list @playwright/test --json 2>/dev/null | node -e 'const fs=require("fs");const input=fs.readFileSync(0,"utf8");const data=input?JSON.parse(input):[];const v=data?.[0]?.devDependencies?.["@playwright/test"]?.version||data?.[0]?.dependencies?.["@playwright/test"]?.version||"";process.stdout.write(v);' 2>/dev/null || true)
-        else
-          echo "⚠️ Warning: jq and node not found; falling back to 'latest'." >&2
+        if [ -f "package.json" ]; then
+          VERSION=$(node -p "try { require('./package.json').devDependencies?.['@playwright/test'] || require('./package.json').dependencies?.['@playwright/test'] || '' } catch { '' }" 2>/dev/null || true)
         fi
 
-        if [ -z "$VERSION" ] || [ "$VERSION" = "null" ]; then
+        if [ -z "$VERSION" ]; then
           VERSION="latest"
+          echo "⚠️ Warning: @playwright/test not found in package.json; falling back to 'latest'." >&2
         fi
-        if [ "$VERSION" = "latest" ]; then
-          echo "⚠️ Warning: Playwright version resolved to 'latest'. This may indicate @playwright/test is not in dependencies." >&2
-        fi
-        echo "version=$VERSION" >> $GITHUB_OUTPUT
+        echo "version=$VERSION" >> "$GITHUB_OUTPUT"
         echo "🎭 Playwright version: $VERSION"
 
     - name: Cache Playwright browsers
