@@ -13,9 +13,9 @@ inputs:
   cache:
     description: "Cache manager to use: 'pip', 'uv', or empty string to disable"
     required: false
-    default: "pip"
+    default: ""
   cache-dependency-path:
-    description: "Lockfile paths for cache key (newline-separated). Defaults to requirements.txt, pyproject.toml, uv.lock in working directory"
+    description: "Lockfile paths for cache key (newline-separated); pass paths when enabling caching"
     required: false
     default: ""
   install-deps:
@@ -34,11 +34,12 @@ runs:
       if: inputs.cache == 'uv'
       uses: astral-sh/setup-uv@c18668ad3cf93ea998bef934396af7bb5c839dc7 # v10.2.0
       with:
+        python-version: ${{ inputs.python-version }}
+        activate-environment: true
+        working-directory: ${{ inputs.working-directory }}
         enable-cache: true
-        cache-dependency-glob: |
-          requirements*.txt
-          pyproject.toml
-          uv.lock
+        ignore-nothing-to-cache: ${{ inputs.install-deps != 'true' }}
+        cache-dependency-glob: ${{ inputs.cache-dependency-path }}
 
     - name: Setup Python
       if: inputs.cache != 'uv'
@@ -52,7 +53,16 @@ runs:
       if: inputs.cache == 'uv' && inputs.install-deps == 'true'
       shell: bash
       working-directory: ${{ inputs.working-directory }}
-      run: uv sync --frozen
+      run: |
+        if [ -f "uv.lock" ]; then
+          uv sync --frozen
+        elif [ -f "pyproject.toml" ]; then
+          uv sync
+        elif [ -f "requirements.txt" ]; then
+          uv pip install -r requirements.txt
+        else
+          echo "⚠️ No uv.lock, pyproject.toml, or requirements.txt found — skipping dependency install"
+        fi
 
     - name: Install dependencies (pip)
       if: inputs.cache != 'uv' && inputs.install-deps == 'true'

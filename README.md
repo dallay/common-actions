@@ -147,8 +147,8 @@ steps:
   - uses: dallay/common-actions/actions/setup-python@v1
     with:
       python-version: "3.12"      # optional, this is the default
-      cache: "pip"                # optional: "pip" (default), "uv", or "" to disable
-      # cache-dependency-path: "" # optional: lockfile paths for cache key
+      cache: ""                    # optional: "pip", "uv", or empty (default; disables caching)
+      # cache-dependency-path: "requirements.txt" # required for pip caching; uv paths are relative to working-directory
       # install-deps: "true"      # optional: install requirements.txt / pyproject.toml
       # working-directory: "."    # optional
 ```

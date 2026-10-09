@@ -49,7 +49,7 @@ runs:
       if: inputs.cache == 'true'
       uses: Swatinem/rust-cache@6323deb102c322ba6fcbdcafc7e3dddab59af2b6 # v2.9.2
       with:
-        workspaces: ${{ inputs.cache-workspaces != '' && format('{0}\n{1}', inputs.working-directory, inputs.cache-workspaces) || inputs.working-directory }}
+        workspaces: ${{ inputs.cache-workspaces != '' && format('{0}{1}{2}', inputs.working-directory, fromJSON('"\n"'), inputs.cache-workspaces) || inputs.working-directory }}
         cache-on-failure: true
 
     - name: Install sccache
