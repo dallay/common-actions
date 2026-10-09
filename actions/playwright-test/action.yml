@@ -52,15 +52,22 @@ runs:
           exit 1
         fi
 
-        # Read @playwright/test version directly from package.json — no pnpm list, no jq required
+        # Read the INSTALLED @playwright/test version (not the declared range) so
+        # that lockfile-only changes produce a different cache key.
         VERSION=""
-        if [ -f "package.json" ]; then
+        if [ -f "package.json" ] && [ -d "node_modules/@playwright/test" ]; then
+          VERSION=$(node -p "try { require('@playwright/test/package.json').version } catch { '' }" 2>/dev/null || true)
+        fi
+        if [ -z "$VERSION" ] && [ -f "package.json" ]; then
           VERSION=$(node -p "try { require('./package.json').devDependencies?.['@playwright/test'] || require('./package.json').dependencies?.['@playwright/test'] || '' } catch { '' }" 2>/dev/null || true)
+          if [ -n "$VERSION" ]; then
+            echo "⚠️ Warning: using declared @playwright/test range '$VERSION' from package.json (binary not yet installed)." >&2
+          fi
         fi
 
         if [ -z "$VERSION" ]; then
           VERSION="latest"
-          echo "⚠️ Warning: @playwright/test not found in package.json; falling back to 'latest'." >&2
+          echo "⚠️ Warning: @playwright/test not found; falling back to 'latest'." >&2
         fi
         echo "version=$VERSION" >> "$GITHUB_OUTPUT"
         echo "🎭 Playwright version: $VERSION"
