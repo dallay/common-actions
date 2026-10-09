@@ -8,6 +8,7 @@
   ],
   "labels": ["dependencies", "automated"],
   "assignees": ["yacosta738"],
+  "assignAutomerge": true,
   "prHourlyLimit": 5,
   "prConcurrentLimit": 10,
   "platformAutomerge": true,
@@ -33,7 +34,7 @@
       "matchManagers": ["github-actions"],
       "matchUpdateTypes": ["major"],
       "automerge": false,
-      "labels": ["dependencies", "breaking"]
+      "addLabels": ["breaking"]
     },
     {
       "description": "Group all npm devDependencies digest/patch updates and automerge",
@@ -59,7 +60,7 @@
       "matchDepTypes": ["devDependencies"],
       "matchUpdateTypes": ["major"],
       "automerge": false,
-      "labels": ["dependencies", "breaking"]
+      "addLabels": ["breaking"]
     },
     {
       "description": "Ignore digest updates for actions pinned by SHA to silence marocchino false-positive warnings",
