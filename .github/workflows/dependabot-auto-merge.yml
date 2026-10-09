@@ -25,9 +25,23 @@ on:
         required: false
 
 jobs:
+  # When this file lives in the source repo (.github/workflows/), GitHub
+  # Actions creates an empty run on every push to the default branch because
+  # `on: workflow_call` is the only trigger. The run completes with 0 jobs
+  # and is marked as failure, polluting the Actions UI.
+  #
+  # This noop job makes those pushes succeed (1 job, success) while leaving
+  # real callers via `workflow_call` completely unaffected — it runs first
+  # and exits immediately.
+  noop:
+    if: github.event_name != 'workflow_call'
+    runs-on: ubuntu-latest
+    steps:
+      - run: echo "Reusable workflow — no work to do for ${{ github.event_name }} events."
+
   auto-merge:
     runs-on: ubuntu-latest
-    if: github.actor == 'dependabot[bot]' || github.actor == 'renovate[bot]' || github.actor == 'dependabot-preview[bot]'
+    if: github.event_name == 'workflow_call' && (github.actor == 'dependabot[bot]' || github.actor == 'renovate[bot]' || github.actor == 'dependabot-preview[bot]')
     permissions:
       contents: write
       pull-requests: write
