@@ -1,0 +1,140 @@
+name: Despliegue privado
+
+on:
+  workflow_call:
+    inputs:
+      deployment-url:
+        description: URL completa del endpoint privado (HTTP o HTTPS)
+        required: true
+        type: string
+      deployment-payload:
+        description: Cuerpo JSON de la solicitud POST
+        required: true
+        type: string
+      api-key-header:
+        description: Nombre de la cabecera que recibe la API key
+        required: false
+        default: x-api-key
+        type: string
+      tailscale-client-id:
+        description: Client ID de la identidad federada de Tailscale
+        required: true
+        type: string
+      tailscale-audience:
+        description: Audiencia OIDC configurada en Tailscale
+        required: true
+        type: string
+      tailscale-tags:
+        description: Etiquetas autorizadas para el nodo temporal
+        required: true
+        type: string
+    secrets:
+      api-key:
+        description: Valor completo de la cabecera de autenticación
+        required: true
+
+permissions:
+  id-token: write
+
+concurrency:
+  group: private-deploy-${{ github.repository }}-${{ github.workflow }}-${{ github.ref }}-${{ inputs.deployment-url }}
+  cancel-in-progress: false
+
+jobs:
+  deploy:
+    name: Enviar solicitud privada
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - name: Validar parámetros antes de conectar
+        env:
+          DEPLOYMENT_URL: ${{ inputs.deployment-url }}
+          DEPLOYMENT_PAYLOAD: ${{ inputs.deployment-payload }}
+          API_KEY_HEADER: ${{ inputs.api-key-header }}
+          API_KEY: ${{ secrets.api-key }}
+          TAILSCALE_CLIENT_ID: ${{ inputs.tailscale-client-id }}
+          TAILSCALE_AUDIENCE: ${{ inputs.tailscale-audience }}
+          TAILSCALE_TAGS: ${{ inputs.tailscale-tags }}
+        shell: bash
+        run: |
+          python3 - <<'PY'
+          import json
+          import os
+          import re
+          import sys
+          from urllib.parse import urlsplit
+
+          def fail(message):
+              print(f"::error::{message}", file=sys.stderr)
+              sys.exit(1)
+
+          url = os.environ["DEPLOYMENT_URL"]
+          try:
+              if any(c.isspace() or ord(c) < 32 or ord(c) == 127 for c in url) or "\\" in url or "#" in url:
+                  raise ValueError()
+              parsed = urlsplit(url)
+              if parsed.scheme not in ("http", "https") or not parsed.hostname or parsed.username is not None or parsed.password is not None:
+                  raise ValueError()
+              # Acceder al puerto también valida su formato y rango.
+              _ = parsed.port
+          except ValueError:
+              fail("La URL debe ser HTTP/HTTPS, sin credenciales, fragmento ni espacios.")
+
+          def reject_constant(_):
+              raise ValueError()
+
+          try:
+              json.loads(os.environ["DEPLOYMENT_PAYLOAD"], parse_constant=reject_constant)
+          except (ValueError, RecursionError):
+              fail("El cuerpo debe ser JSON válido.")
+          if not re.fullmatch(r"[!#$%&'*+.^_`|~0-9A-Za-z-]+", os.environ["API_KEY_HEADER"]):
+              fail("El nombre de cabecera debe ser un token HTTP.")
+          key = os.environ["API_KEY"]
+          if not key.strip() or any(ord(c) < 32 or ord(c) == 127 for c in key):
+              fail("La API key no puede estar vacía ni contener caracteres de control.")
+          for name in ("TAILSCALE_CLIENT_ID", "TAILSCALE_AUDIENCE", "TAILSCALE_TAGS"):
+              if not os.environ[name].strip():
+                  fail("Los parámetros OIDC de Tailscale no pueden estar vacíos.")
+          PY
+
+      - name: Conectar a la red privada mediante OIDC
+        uses: tailscale/github-action@99a8333667fff04fdd6cffb46dfd409f8329a7bf # v4
+        with:
+          oauth-client-id: ${{ inputs.tailscale-client-id }}
+          audience: ${{ inputs.tailscale-audience }}
+          tags: ${{ inputs.tailscale-tags }}
+
+      - name: Enviar POST sin exponer datos
+        env:
+          DEPLOYMENT_URL: ${{ inputs.deployment-url }}
+          DEPLOYMENT_PAYLOAD: ${{ inputs.deployment-payload }}
+          API_KEY_HEADER: ${{ inputs.api-key-header }}
+          API_KEY: ${{ secrets.api-key }}
+        shell: bash
+        run: |
+          python3 - <<'PY'
+          import os
+          import re
+          import subprocess
+          import sys
+
+          try:
+              result = subprocess.run([
+                  "curl", "--disable", "--silent", "--globoff",
+                  "--noproxy", "*", "--proto", "=http,https",
+                  "--request", "POST", "--url", os.environ["DEPLOYMENT_URL"],
+                  "--header", "Content-Type: application/json",
+                  "--header", os.environ["API_KEY_HEADER"] + ": " + os.environ["API_KEY"],
+                  "--data-binary", "@-", "--output", "/dev/null",
+                  "--write-out", "%{http_code}", "--connect-timeout", "10",
+                  "--max-time", "60", "--retry", "0", "--max-redirs", "0",
+              ], input=os.environ["DEPLOYMENT_PAYLOAD"].encode("utf-8"),
+                  stdout=subprocess.PIPE, stderr=subprocess.DEVNULL, timeout=65)
+              accepted = result.returncode == 0 and re.fullmatch(rb"2[0-9]{2}", result.stdout)
+          except (OSError, subprocess.TimeoutExpired, UnicodeError):
+              accepted = False
+          if not accepted:
+              print("::error::La solicitud falló o no recibió HTTP 2xx. No se reintentó.", file=sys.stderr)
+              sys.exit(1)
+          print("Solicitud aceptada (HTTP 2xx); no se comprobó el despliegue.")
+          PY
