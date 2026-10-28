@@ -605,9 +605,9 @@ destino y puerto del servicio. La conectividad al servicio y su DNS privado debe
 estar disponibles desde la red Tailscale. No heredes todos los secretos.
 
 El job usa `ubuntu-latest`, solo concede `id-token: write` y tiene un límite de
-5 minutos. Serializa por repositorio, workflow consumidor y referencia, sin cancelar
-solicitudes activas. GitHub puede reemplazar ejecuciones pendientes; no es una cola
-FIFO ni un bloqueo global entre workflows o ramas.
+5 minutos. Serializa por repositorio, workflow consumidor, referencia y URL de
+destino, sin cancelar solicitudes activas. GitHub puede reemplazar ejecuciones
+pendientes; no es una cola FIFO ni un bloqueo global entre workflows o ramas.
 
 La solicitud tiene 10 segundos para conectar y 60 segundos en total. No sigue
 redirecciones ni reintenta el POST. Descarta la respuesta y los diagnósticos de

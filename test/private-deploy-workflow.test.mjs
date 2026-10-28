@@ -52,7 +52,23 @@ test("declara contrato, aislamiento, OIDC y serialización sin cancelar", () => 
   assert.match(workflow, /runs-on: ubuntu-latest/);
   assert.match(workflow, /timeout-minutes: 5/);
   assert.match(workflow, /permissions:\n  id-token: write\n/);
-  assert.match(workflow, /concurrency:\n  group: private-deploy-\$\{\{ github.repository \}\}-\$\{\{ github.workflow \}\}-\$\{\{ github.ref \}\}\n  cancel-in-progress: false/);
+  assert.match(workflow, /concurrency:\n  group: private-deploy-\$\{\{ github.repository \}\}-\$\{\{ github.workflow \}\}-\$\{\{ github.ref \}\}-\$\{\{ inputs.deployment-url \}\}\n  cancel-in-progress: false/);
+  assert.match(workflow, /deploy:\n    name: Enviar solicitud privada\n    runs-on: ubuntu-latest\n    timeout-minutes: 5\n    steps:\n      - name: Validar parámetros antes de conectar\n        env:\n(?:          [A-Z_]+: .*\n){7}/);
+  assert.match(workflow, /- name: Enviar POST sin exponer datos\n        env:\n(?:          (?:DEPLOYMENT_URL|DEPLOYMENT_PAYLOAD|API_KEY_HEADER|API_KEY): .*\n){4}        shell: bash\n/);
+  assert.doesNotMatch(workflow, /jobs:\n  deploy:\n[^]*?\n    env:\n/);
+  const validationStep = workflow.slice(workflow.indexOf("- name: Validar parámetros"), workflow.indexOf("- name: Conectar a la red"));
+  for (const variable of ["DEPLOYMENT_URL", "DEPLOYMENT_PAYLOAD", "API_KEY_HEADER", "API_KEY", "TAILSCALE_CLIENT_ID", "TAILSCALE_AUDIENCE", "TAILSCALE_TAGS"]) {
+    assert.match(validationStep, new RegExp(`          ${variable}:`));
+  }
+  const tailscaleStep = workflow.slice(workflow.indexOf("- name: Conectar a la red"), workflow.indexOf("- name: Enviar POST"));
+  assert.doesNotMatch(tailscaleStep, /\n        env:\n/);
+  const postStep = workflow.slice(workflow.indexOf("- name: Enviar POST"));
+  for (const variable of ["DEPLOYMENT_URL", "DEPLOYMENT_PAYLOAD", "API_KEY_HEADER", "API_KEY"]) {
+    assert.match(postStep, new RegExp(`          ${variable}:`));
+  }
+  for (const variable of ["TAILSCALE_CLIENT_ID", "TAILSCALE_AUDIENCE", "TAILSCALE_TAGS"]) {
+    assert.doesNotMatch(postStep, new RegExp(`          ${variable}:`));
+  }
   assert.match(workflow, /tailscale\/github-action@99a8333667fff04fdd6cffb46dfd409f8329a7bf # v4/);
   for (const input of ["oauth-client-id", "audience", "tags"]) assert.match(workflow, new RegExp(`          ${input}:`));
   for (const [variable, input] of Object.entries({ DEPLOYMENT_URL: "deployment-url", DEPLOYMENT_PAYLOAD: "deployment-payload",
