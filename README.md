@@ -548,10 +548,10 @@ jobs:
 ### `private-deploy.yml` — Private deployment request
 
 Sends a single JSON POST to a full URL through a temporary Tailscale connection
-using OIDC. It does not require checkout or depend on an API-specific format.
-The caller controls when to deploy, job dependencies, and the JSON body. An HTTP
-**2xx confirms only that the request was accepted**: the workflow does not wait for
-or verify deployment completion.
+using OAuth or OIDC. OIDC remains the default for compatibility. The caller
+controls when to deploy, job dependencies, and the JSON body. An HTTP **2xx confirms
+only that the request was accepted**: the workflow does not wait for or verify
+deployment completion.
 
 Contract:
 
@@ -563,8 +563,13 @@ Contract:
 - `deployment-payload` (required): valid JSON, sent without modification. Do not
   include secrets in inputs.
 - `api-key-header` (optional): HTTP header name; defaults to `x-api-key`.
-- `tailscale-client-id`, `tailscale-audience`, `tailscale-tags` (required): the
-  federated identity, audience, and authorized Tailscale tags.
+- `tailscale-auth-mode` (optional): `oidc` (default) or `oauth`.
+- `tailscale-client-id` and `tailscale-tags` (required): the OAuth client ID and
+  authorized Tailscale tags for either mode.
+- `tailscale-audience` (required in `oidc` mode): the audience configured for the
+  Tailscale federated identity provider. It is not used in `oauth` mode.
+- `tailscale-oauth-secret` secret (required in `oauth` mode): the OAuth client
+  secret. It is not used in `oidc` mode.
 - `api-key` secret (optional): full header value, without line breaks. For an API
   that uses `Authorization`, include the required prefix in the secret, for
   example `Bearer …`. When omitted, the request does not include the API-key header.
@@ -583,13 +588,15 @@ name: Request private deployment
 on:
   workflow_dispatch:
 
-permissions:
-  id-token: write
+permissions: {}
 
 jobs:
   deploy:
+    permissions:
+      id-token: write
     uses: dallay/common-actions/.github/workflows/private-deploy.yml@<IMMUTABLE_SHA>
     with:
+      tailscale-auth-mode: oidc
       deployment-url: http://internal.service:8080/api/deploy
       deployment-payload: '{"version":"1.2.3"}'
       api-key-header: x-api-key
@@ -603,15 +610,37 @@ jobs:
       deployment-url: ${{ secrets.DEPLOYMENT_WEBHOOK_URL }}
 ```
 
-Configure a Tailscale federated identity for the GitHub Actions OIDC issuer and
-audience. Restrict trust to the caller's authorized repositories and branches
-with token conditions. Do not authorize every repository or branch. Authorize
-only the required tags and limit ACLs/grants to the service destination and port.
-The service and its private DNS must be reachable from the Tailscale network. Do
-not inherit all secrets.
+For OIDC, configure a Tailscale federated identity for the GitHub Actions OIDC
+issuer and audience. Restrict trust to the caller's authorized repositories and
+branches with token conditions. For OAuth, pass the client secret explicitly as
+`tailscale-oauth-secret`; grant the OAuth client only the required tags and
+network access. Do not authorize every repository or branch. Limit ACLs/grants to
+the service destination and port. The service and its private DNS must be
+reachable from the Tailscale network. Do not inherit all secrets.
 
-The job uses `ubuntu-latest`, grants only `id-token: write`, and has a five-minute
-timeout. It serializes requests by repository, caller workflow, ref, and target
+OAuth caller example (use the same immutable SHA and endpoint inputs as above):
+
+```yaml
+jobs:
+  deploy:
+    uses: dallay/common-actions/.github/workflows/private-deploy.yml@<IMMUTABLE_SHA>
+    with:
+      tailscale-auth-mode: oauth
+      deployment-url: http://internal.service:8080/api/deploy
+      deployment-payload: '{"version":"1.2.3"}'
+      tailscale-client-id: ${{ vars.TAILSCALE_CLIENT_ID }}
+      tailscale-tags: tag:ci-deploy
+    secrets:
+      tailscale-oauth-secret: ${{ secrets.TAILSCALE_OAUTH_SECRET }}
+      deployment-url: ${{ secrets.DEPLOYMENT_WEBHOOK_URL }}
+```
+
+The OAuth caller and reusable workflow do not need `id-token: write`.
+
+The reusable workflow grants `id-token: write` only to its OIDC job. The calling
+workflow must also grant that permission to the reusable-workflow job in OIDC mode.
+OAuth mode does not require `id-token: write`. Both jobs use `ubuntu-latest`; the
+deployment jobs have a five-minute timeout. It serializes requests by repository, caller workflow, ref, and target
 URL without canceling active requests. GitHub may replace pending runs; this is
 not a FIFO queue or a global lock across workflows or branches.
 

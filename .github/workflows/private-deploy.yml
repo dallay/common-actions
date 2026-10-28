@@ -17,13 +17,19 @@ on:
         required: false
         default: x-api-key
         type: string
+      tailscale-auth-mode:
+        description: Tailscale authentication mode
+        required: false
+        default: oidc
+        type: string
       tailscale-client-id:
-        description: Client ID for the Tailscale federated identity
+        description: OAuth client ID for Tailscale authentication
         required: true
         type: string
       tailscale-audience:
-        description: Configured OIDC audience in Tailscale
-        required: true
+        description: Configured OIDC audience; required in oidc mode
+        required: false
+        default: ''
         type: string
       tailscale-tags:
         description: Authorized tags for the ephemeral node
@@ -36,29 +42,60 @@ on:
       deployment-url:
         description: Full private endpoint URL; store credential-bearing URLs as a secret
         required: false
+      tailscale-oauth-secret:
+        description: OAuth client secret; required in oauth mode
+        required: false
 
-permissions:
-  id-token: write
+permissions: {}
 
 concurrency:
   group: private-deploy-${{ github.repository }}-${{ github.workflow }}-${{ github.ref }}
   cancel-in-progress: false
 
 jobs:
-  deploy:
-    name: Send private request
+  validate-auth-mode:
+    name: Validate Tailscale authentication mode
+    runs-on: ubuntu-latest
+    timeout-minutes: 1
+    steps:
+      - name: Validate authentication mode
+        env:
+          TAILSCALE_AUTH_MODE: ${{ inputs.tailscale-auth-mode }}
+        shell: bash
+        run: |
+          case "$TAILSCALE_AUTH_MODE" in
+            oidc|oauth) ;;
+            *) echo "::error::Tailscale authentication mode must be oidc or oauth." >&2; exit 1 ;;
+          esac
+
+  deploy-oidc:
+    needs: validate-auth-mode
+    if: ${{ inputs.tailscale-auth-mode == 'oidc' }}
+    name: Send private request using OIDC
     runs-on: ubuntu-latest
     timeout-minutes: 5
+    permissions:
+      id-token: write
     steps:
-      - name: Validate parameters before connecting
+      - name: Validate OIDC parameters
+        env:
+          TAILSCALE_CLIENT_ID: ${{ inputs.tailscale-client-id }}
+          TAILSCALE_AUDIENCE: ${{ inputs.tailscale-audience }}
+          TAILSCALE_TAGS: ${{ inputs.tailscale-tags }}
+        shell: bash
+        run: |
+          if [[ -z "${TAILSCALE_CLIENT_ID//[[:space:]]/}" || -z "${TAILSCALE_AUDIENCE//[[:space:]]/}" || -z "${TAILSCALE_TAGS//[[:space:]]/}" ]]; then
+            echo "::error::Tailscale client ID, audience, and tags are required in oidc mode." >&2
+            exit 1
+          fi
+
+      - &validate-deployment
+        name: Validate deployment parameters before connecting
         env:
           DEPLOYMENT_URL: ${{ secrets.deployment-url || inputs.deployment-url }}
           DEPLOYMENT_PAYLOAD: ${{ inputs.deployment-payload }}
           API_KEY_HEADER: ${{ inputs.api-key-header }}
           API_KEY: ${{ secrets.api-key || '' }}
-          TAILSCALE_CLIENT_ID: ${{ inputs.tailscale-client-id }}
-          TAILSCALE_AUDIENCE: ${{ inputs.tailscale-audience }}
-          TAILSCALE_TAGS: ${{ inputs.tailscale-tags }}
         shell: bash
         run: |
           python3 - <<'PY'
@@ -79,7 +116,6 @@ jobs:
               parsed = urlsplit(url)
               if parsed.scheme not in ("http", "https") or not parsed.hostname or parsed.username is not None or parsed.password is not None:
                   raise ValueError()
-              # Accessing the port also validates its format and range.
               _ = parsed.port
           except ValueError:
               fail("The URL must be HTTP/HTTPS, with no credentials, fragment, or spaces.")
@@ -96,9 +132,6 @@ jobs:
           key = os.environ["API_KEY"]
           if any(ord(c) < 32 or ord(c) == 127 for c in key):
               fail("The API key cannot contain control characters.")
-          for name in ("TAILSCALE_CLIENT_ID", "TAILSCALE_AUDIENCE", "TAILSCALE_TAGS"):
-              if not os.environ[name].strip():
-                  fail("Tailscale OIDC parameters cannot be empty.")
           PY
 
       - name: Connect to private network via OIDC
@@ -108,7 +141,8 @@ jobs:
           audience: ${{ inputs.tailscale-audience }}
           tags: ${{ inputs.tailscale-tags }}
 
-      - name: Send POST without exposing values
+      - &send-deployment
+        name: Send POST without exposing values
         env:
           DEPLOYMENT_URL: ${{ secrets.deployment-url || inputs.deployment-url }}
           DEPLOYMENT_PAYLOAD: ${{ inputs.deployment-payload }}
@@ -146,3 +180,34 @@ jobs:
               sys.exit(1)
           print("Request accepted (HTTP 2xx); deployment completion was not verified.")
           PY
+
+  deploy-oauth:
+    needs: validate-auth-mode
+    if: ${{ inputs.tailscale-auth-mode == 'oauth' }}
+    name: Send private request using OAuth
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    permissions: {}
+    steps:
+      - name: Validate OAuth parameters
+        env:
+          TAILSCALE_CLIENT_ID: ${{ inputs.tailscale-client-id }}
+          TAILSCALE_OAUTH_SECRET: ${{ secrets.tailscale-oauth-secret || '' }}
+          TAILSCALE_TAGS: ${{ inputs.tailscale-tags }}
+        shell: bash
+        run: |
+          if [[ -z "${TAILSCALE_CLIENT_ID//[[:space:]]/}" || -z "${TAILSCALE_OAUTH_SECRET//[[:space:]]/}" || -z "${TAILSCALE_TAGS//[[:space:]]/}" ]]; then
+            echo "::error::Tailscale client ID, OAuth secret, and tags are required in oauth mode." >&2
+            exit 1
+          fi
+
+      - *validate-deployment
+
+      - name: Connect to private network via OAuth
+        uses: tailscale/github-action@99a8333667fff04fdd6cffb46dfd409f8329a7bf # v4
+        with:
+          oauth-client-id: ${{ inputs.tailscale-client-id }}
+          oauth-secret: ${{ secrets.tailscale-oauth-secret }}
+          tags: ${{ inputs.tailscale-tags }}
+
+      - *send-deployment
