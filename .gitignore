@@ -9,3 +9,6 @@ Thumbs.db
 
 # Node (for local testing)
 node_modules/
+
+# TMP
+/.agents/rpi/
