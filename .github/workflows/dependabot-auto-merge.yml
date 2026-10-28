@@ -1,6 +1,7 @@
 name: Dependabot Auto-Merge
 
 on:
+  push:
   workflow_call:
     inputs:
       target:
