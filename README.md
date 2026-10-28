@@ -545,6 +545,90 @@ jobs:
 
 ---
 
+### `private-deploy.yml` — Solicitud de despliegue privado
+
+Envía un único POST JSON a una URL completa mediante una conexión temporal a
+Tailscale con OIDC. No requiere checkout ni conoce el formato específico de la API.
+El consumidor decide cuándo desplegar, las dependencias del job y el cuerpo JSON.
+Un HTTP **2xx solo confirma la aceptación de la solicitud**: el workflow no espera
+ni comprueba la finalización del despliegue.
+
+Contrato:
+
+- `deployment-url` (obligatorio): URL completa HTTP/HTTPS, con ruta y consulta si
+  corresponden; sin credenciales, fragmento ni espacios.
+- `deployment-payload` (obligatorio): JSON válido, enviado sin modificar.
+  No incluyas secretos en inputs.
+- `api-key-header` (opcional): nombre de cabecera HTTP; por defecto `x-api-key`.
+- `tailscale-client-id`, `tailscale-audience`, `tailscale-tags` (obligatorios):
+  identidad federada, audiencia y etiquetas autorizadas en Tailscale.
+- Secreto `api-key` (obligatorio): valor completo de la cabecera, sin saltos de
+  línea. Para una API que use `Authorization`, incluye el prefijo requerido en el
+  propio secreto, por ejemplo `Bearer …`.
+
+La URL, el cuerpo y los parámetros de identidad no son secretos. GitHub puede
+mostrarlos en metadatos y logs de preparación de pasos al procesar inputs y
+variables de entorno. La no impresión de valores solo se aplica a la salida de
+los scripts y de `curl`; no garantiza confidencialidad global. La API key se pasa
+como secreto y usa el enmascaramiento (masking) de GitHub.
+
+Ejemplo del consumidor (sustituye **`<SHA_INMUTABLE>`** por un commit real de
+40 caracteres que hayas revisado; el marcador no es una referencia ejecutable):
+
+```yaml
+name: Solicitar despliegue privado
+on:
+  workflow_dispatch:
+
+permissions:
+  id-token: write
+
+jobs:
+  deploy:
+    uses: dallay/common-actions/.github/workflows/private-deploy.yml@<SHA_INMUTABLE>
+    with:
+      deployment-url: http://servicio.interno:8080/api/deploy
+      deployment-payload: '{"version":"1.2.3"}'
+      api-key-header: x-api-key
+      tailscale-client-id: ${{ vars.TAILSCALE_CLIENT_ID }}
+      tailscale-audience: ${{ vars.TAILSCALE_AUDIENCE }}
+      tailscale-tags: tag:ci-deploy
+    secrets:
+      api-key: ${{ secrets.DEPLOYMENT_API_KEY }}
+```
+
+Configura una identidad federada de Tailscale para el emisor OIDC de GitHub Actions
+y su audiencia. Restringe la confianza a los repositorios y ramas autorizados del
+consumidor mediante las condiciones del token. No autorices cualquier repositorio
+o rama. Autoriza únicamente las etiquetas necesarias y limita las ACL/grants al
+destino y puerto del servicio. La conectividad al servicio y su DNS privado deben
+estar disponibles desde la red Tailscale. No heredes todos los secretos.
+
+El job usa `ubuntu-latest`, solo concede `id-token: write` y tiene un límite de
+5 minutos. Serializa por repositorio, workflow consumidor y referencia, sin cancelar
+solicitudes activas. GitHub puede reemplazar ejecuciones pendientes; no es una cola
+FIFO ni un bloqueo global entre workflows o ramas.
+
+La solicitud tiene 10 segundos para conectar y 60 segundos en total. No sigue
+redirecciones ni reintenta el POST. Descarta la respuesta y los diagnósticos de
+`curl` y no imprime URL, cuerpo ni secretos en la salida de los scripts. HTTPS verifica TLS; HTTP está
+permitido dentro del túnel. Un fallo de transporte puede ocurrir después de que el
+servicio acepte el POST: comprueba el estado antes de repetirlo manualmente.
+
+La acción de Tailscale está fijada por SHA y registra un paso posterior de logout
+para la limpieza normal, también cuando falla el POST. El nodo es efímero. Una
+limpieza fallida no hace fallar el job. Una terminación abrupta del runner puede
+impedir ese paso; la eliminación del nodo
+depende entonces de la limpieza de nodos efímeros de Tailscale, no de una garantía
+de desconexión inmediata de este workflow.
+
+Verificación local, sin solicitudes a la red privada:
+
+```sh
+node --test test/*.test.mjs
+actionlint .github/workflows/private-deploy.yml
+```
+
 ## Security Practices
 
 - **SHA Pinning**: All third-party actions are pinned to full commit SHAs (not mutable tags)
