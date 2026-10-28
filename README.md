@@ -545,38 +545,37 @@ jobs:
 
 ---
 
-### `private-deploy.yml` — Solicitud de despliegue privado
+### `private-deploy.yml` — Private deployment request
 
-Envía un único POST JSON a una URL completa mediante una conexión temporal a
-Tailscale con OIDC. No requiere checkout ni conoce el formato específico de la API.
-El consumidor decide cuándo desplegar, las dependencias del job y el cuerpo JSON.
-Un HTTP **2xx solo confirma la aceptación de la solicitud**: el workflow no espera
-ni comprueba la finalización del despliegue.
+Sends a single JSON POST to a full URL through a temporary Tailscale connection
+using OIDC. It does not require checkout or depend on an API-specific format.
+The caller controls when to deploy, job dependencies, and the JSON body. An HTTP
+**2xx confirms only that the request was accepted**: the workflow does not wait for
+or verify deployment completion.
 
-Contrato:
+Contract:
 
-- `deployment-url` (obligatorio): URL completa HTTP/HTTPS, con ruta y consulta si
-  corresponden; sin credenciales, fragmento ni espacios.
-- `deployment-payload` (obligatorio): JSON válido, enviado sin modificar.
-  No incluyas secretos en inputs.
-- `api-key-header` (opcional): nombre de cabecera HTTP; por defecto `x-api-key`.
-- `tailscale-client-id`, `tailscale-audience`, `tailscale-tags` (obligatorios):
-  identidad federada, audiencia y etiquetas autorizadas en Tailscale.
-- Secreto `api-key` (obligatorio): valor completo de la cabecera, sin saltos de
-  línea. Para una API que use `Authorization`, incluye el prefijo requerido en el
-  propio secreto, por ejemplo `Bearer …`.
+- `deployment-url` (required): full HTTP/HTTPS URL, including a path and query if
+  needed; no credentials, fragment, or spaces.
+- `deployment-payload` (required): valid JSON, sent without modification. Do not
+  include secrets in inputs.
+- `api-key-header` (optional): HTTP header name; defaults to `x-api-key`.
+- `tailscale-client-id`, `tailscale-audience`, `tailscale-tags` (required): the
+  federated identity, audience, and authorized Tailscale tags.
+- `api-key` secret (required): full header value, without line breaks. For an API
+  that uses `Authorization`, include the required prefix in the secret, for
+  example `Bearer …`.
 
-La URL, el cuerpo y los parámetros de identidad no son secretos. GitHub puede
-mostrarlos en metadatos y logs de preparación de pasos al procesar inputs y
-variables de entorno. La no impresión de valores solo se aplica a la salida de
-los scripts y de `curl`; no garantiza confidencialidad global. La API key se pasa
-como secreto y usa el enmascaramiento (masking) de GitHub.
+The URL, body, and identity parameters are not secrets. GitHub may expose them in
+metadata and step setup logs while it processes inputs and environment variables.
+Value suppression applies only to script and `curl` output; it does not guarantee
+global confidentiality. The API key is passed as a secret and uses GitHub masking.
 
-Ejemplo del consumidor (sustituye **`<SHA_INMUTABLE>`** por un commit real de
-40 caracteres que hayas revisado; el marcador no es una referencia ejecutable):
+Consumer example (replace **`<IMMUTABLE_SHA>`** with a reviewed, real 40-character
+commit SHA; the placeholder is not an executable reference):
 
 ```yaml
-name: Solicitar despliegue privado
+name: Request private deployment
 on:
   workflow_dispatch:
 
@@ -585,9 +584,9 @@ permissions:
 
 jobs:
   deploy:
-    uses: dallay/common-actions/.github/workflows/private-deploy.yml@<SHA_INMUTABLE>
+    uses: dallay/common-actions/.github/workflows/private-deploy.yml@<IMMUTABLE_SHA>
     with:
-      deployment-url: http://servicio.interno:8080/api/deploy
+      deployment-url: http://internal.service:8080/api/deploy
       deployment-payload: '{"version":"1.2.3"}'
       api-key-header: x-api-key
       tailscale-client-id: ${{ vars.TAILSCALE_CLIENT_ID }}
@@ -597,32 +596,32 @@ jobs:
       api-key: ${{ secrets.DEPLOYMENT_API_KEY }}
 ```
 
-Configura una identidad federada de Tailscale para el emisor OIDC de GitHub Actions
-y su audiencia. Restringe la confianza a los repositorios y ramas autorizados del
-consumidor mediante las condiciones del token. No autorices cualquier repositorio
-o rama. Autoriza únicamente las etiquetas necesarias y limita las ACL/grants al
-destino y puerto del servicio. La conectividad al servicio y su DNS privado deben
-estar disponibles desde la red Tailscale. No heredes todos los secretos.
+Configure a Tailscale federated identity for the GitHub Actions OIDC issuer and
+audience. Restrict trust to the caller's authorized repositories and branches
+with token conditions. Do not authorize every repository or branch. Authorize
+only the required tags and limit ACLs/grants to the service destination and port.
+The service and its private DNS must be reachable from the Tailscale network. Do
+not inherit all secrets.
 
-El job usa `ubuntu-latest`, solo concede `id-token: write` y tiene un límite de
-5 minutos. Serializa por repositorio, workflow consumidor, referencia y URL de
-destino, sin cancelar solicitudes activas. GitHub puede reemplazar ejecuciones
-pendientes; no es una cola FIFO ni un bloqueo global entre workflows o ramas.
+The job uses `ubuntu-latest`, grants only `id-token: write`, and has a five-minute
+timeout. It serializes requests by repository, caller workflow, ref, and target
+URL without canceling active requests. GitHub may replace pending runs; this is
+not a FIFO queue or a global lock across workflows or branches.
 
-La solicitud tiene 10 segundos para conectar y 60 segundos en total. No sigue
-redirecciones ni reintenta el POST. Descarta la respuesta y los diagnósticos de
-`curl` y no imprime URL, cuerpo ni secretos en la salida de los scripts. HTTPS verifica TLS; HTTP está
-permitido dentro del túnel. Un fallo de transporte puede ocurrir después de que el
-servicio acepte el POST: comprueba el estado antes de repetirlo manualmente.
+The request has a 10-second connection timeout and a 60-second total timeout. It
+does not follow redirects or retry the POST. The workflow discards the response
+and `curl` diagnostics and does not print the URL, body, or secrets in script
+output. HTTPS verifies TLS; HTTP is allowed inside the tunnel. A transport error
+can occur after the service accepts the POST. Check the status before retrying
+manually.
 
-La acción de Tailscale está fijada por SHA y registra un paso posterior de logout
-para la limpieza normal, también cuando falla el POST. El nodo es efímero. Una
-limpieza fallida no hace fallar el job. Una terminación abrupta del runner puede
-impedir ese paso; la eliminación del nodo
-depende entonces de la limpieza de nodos efímeros de Tailscale, no de una garantía
-de desconexión inmediata de este workflow.
+The Tailscale action is pinned by SHA and registers a post-job logout for normal
+cleanup, including when the POST fails. The node is ephemeral. Cleanup failure
+does not fail the job. Abrupt runner termination can prevent the post-job step;
+node removal then depends on Tailscale ephemeral-node cleanup, not on a guarantee
+that this workflow disconnects immediately.
 
-Verificación local, sin solicitudes a la red privada:
+Local verification, without requests to the private network:
 
 ```sh
 node --test test/*.test.mjs

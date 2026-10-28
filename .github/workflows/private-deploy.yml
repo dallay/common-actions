@@ -1,36 +1,36 @@
-name: Despliegue privado
+name: Private Deploy
 
 on:
   workflow_call:
     inputs:
       deployment-url:
-        description: URL completa del endpoint privado (HTTP o HTTPS)
+        description: Full URL of the private endpoint (HTTP or HTTPS)
         required: true
         type: string
       deployment-payload:
-        description: Cuerpo JSON de la solicitud POST
+        description: JSON body for the POST request
         required: true
         type: string
       api-key-header:
-        description: Nombre de la cabecera que recibe la API key
+        description: Name of the header that receives the API key
         required: false
         default: x-api-key
         type: string
       tailscale-client-id:
-        description: Client ID de la identidad federada de Tailscale
+        description: Client ID for the Tailscale federated identity
         required: true
         type: string
       tailscale-audience:
-        description: Audiencia OIDC configurada en Tailscale
+        description: Configured OIDC audience in Tailscale
         required: true
         type: string
       tailscale-tags:
-        description: Etiquetas autorizadas para el nodo temporal
+        description: Authorized tags for the ephemeral node
         required: true
         type: string
     secrets:
       api-key:
-        description: Valor completo de la cabecera de autenticación
+        description: Full value of the authentication header
         required: true
 
 permissions:
@@ -42,11 +42,11 @@ concurrency:
 
 jobs:
   deploy:
-    name: Enviar solicitud privada
+    name: Send private request
     runs-on: ubuntu-latest
     timeout-minutes: 5
     steps:
-      - name: Validar parámetros antes de conectar
+      - name: Validate parameters before connecting
         env:
           DEPLOYMENT_URL: ${{ inputs.deployment-url }}
           DEPLOYMENT_PAYLOAD: ${{ inputs.deployment-payload }}
@@ -75,10 +75,10 @@ jobs:
               parsed = urlsplit(url)
               if parsed.scheme not in ("http", "https") or not parsed.hostname or parsed.username is not None or parsed.password is not None:
                   raise ValueError()
-              # Acceder al puerto también valida su formato y rango.
+              # Accessing the port also validates its format and range.
               _ = parsed.port
           except ValueError:
-              fail("La URL debe ser HTTP/HTTPS, sin credenciales, fragmento ni espacios.")
+              fail("The URL must be HTTP/HTTPS, with no credentials, fragment, or spaces.")
 
           def reject_constant(_):
               raise ValueError()
@@ -86,25 +86,25 @@ jobs:
           try:
               json.loads(os.environ["DEPLOYMENT_PAYLOAD"], parse_constant=reject_constant)
           except (ValueError, RecursionError):
-              fail("El cuerpo debe ser JSON válido.")
+              fail("The payload must be valid JSON.")
           if not re.fullmatch(r"[!#$%&'*+.^_`|~0-9A-Za-z-]+", os.environ["API_KEY_HEADER"]):
-              fail("El nombre de cabecera debe ser un token HTTP.")
+              fail("The header name must be an HTTP token.")
           key = os.environ["API_KEY"]
           if not key.strip() or any(ord(c) < 32 or ord(c) == 127 for c in key):
-              fail("La API key no puede estar vacía ni contener caracteres de control.")
+              fail("The API key cannot be empty or contain control characters.")
           for name in ("TAILSCALE_CLIENT_ID", "TAILSCALE_AUDIENCE", "TAILSCALE_TAGS"):
               if not os.environ[name].strip():
-                  fail("Los parámetros OIDC de Tailscale no pueden estar vacíos.")
+                  fail("Tailscale OIDC parameters cannot be empty.")
           PY
 
-      - name: Conectar a la red privada mediante OIDC
+      - name: Connect to private network via OIDC
         uses: tailscale/github-action@99a8333667fff04fdd6cffb46dfd409f8329a7bf # v4
         with:
           oauth-client-id: ${{ inputs.tailscale-client-id }}
           audience: ${{ inputs.tailscale-audience }}
           tags: ${{ inputs.tailscale-tags }}
 
-      - name: Enviar POST sin exponer datos
+      - name: Send POST without exposing values
         env:
           DEPLOYMENT_URL: ${{ inputs.deployment-url }}
           DEPLOYMENT_PAYLOAD: ${{ inputs.deployment-payload }}
@@ -134,7 +134,7 @@ jobs:
           except (OSError, subprocess.TimeoutExpired, UnicodeError):
               accepted = False
           if not accepted:
-              print("::error::La solicitud falló o no recibió HTTP 2xx. No se reintentó.", file=sys.stderr)
+              print("::error::Request failed or did not receive an HTTP 2xx response. It was not retried.", file=sys.stderr)
               sys.exit(1)
-          print("Solicitud aceptada (HTTP 2xx); no se comprobó el despliegue.")
+          print("Request accepted (HTTP 2xx); deployment completion was not verified.")
           PY
