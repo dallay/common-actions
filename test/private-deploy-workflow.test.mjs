@@ -13,6 +13,7 @@ const valid = {
   DEPLOYMENT_PAYLOAD: '{"version":"1.2.3"}',
   API_KEY_HEADER: "x-api-key",
   API_KEY: "secret-key",
+  DEPLOYMENT_URL_SECRET: "",
   TAILSCALE_CLIENT_ID: "client",
   TAILSCALE_AUDIENCE: "audience",
   TAILSCALE_TAGS: "tag:ci",
@@ -48,11 +49,11 @@ test("declares contract, isolation, OIDC, and serialization without cancellation
     assert.match(workflow, new RegExp(`      ${input}:\\n`));
   }
   assert.match(workflow, /default: x-api-key/);
-  assert.match(workflow, /secrets:\n      api-key:\n[^]*?required: true/);
+  assert.match(workflow, /secrets:\n      api-key:\n[^]*?required: false\n      deployment-url:\n[^]*?required: false/);
   assert.match(workflow, /runs-on: ubuntu-latest/);
   assert.match(workflow, /timeout-minutes: 5/);
   assert.match(workflow, /permissions:\n  id-token: write\n/);
-  assert.match(workflow, /concurrency:\n  group: private-deploy-\$\{\{ github.repository \}\}-\$\{\{ github.workflow \}\}-\$\{\{ github.ref \}\}-\$\{\{ inputs.deployment-url \}\}\n  cancel-in-progress: false/);
+  assert.match(workflow, /concurrency:\n  group: private-deploy-\$\{\{ github.repository \}\}-\$\{\{ github.workflow \}\}-\$\{\{ github.ref \}\}\n  cancel-in-progress: false/);
   assert.match(workflow, /deploy:\n    name: Send private request\n    runs-on: ubuntu-latest\n    timeout-minutes: 5\n    steps:\n      - name: Validate parameters before connecting\n        env:\n(?:          [A-Z_]+: .*\n){7}/);
   assert.match(workflow, /- name: Send POST without exposing values\n        env:\n(?:          (?:DEPLOYMENT_URL|DEPLOYMENT_PAYLOAD|API_KEY_HEADER|API_KEY): .*\n){4}        shell: bash\n/);
   assert.doesNotMatch(workflow, /jobs:\n  deploy:\n[^]*?\n    env:\n/);
@@ -71,11 +72,12 @@ test("declares contract, isolation, OIDC, and serialization without cancellation
   }
   assert.match(workflow, /tailscale\/github-action@99a8333667fff04fdd6cffb46dfd409f8329a7bf # v4/);
   for (const input of ["oauth-client-id", "audience", "tags"]) assert.match(workflow, new RegExp(`          ${input}:`));
-  for (const [variable, input] of Object.entries({ DEPLOYMENT_URL: "deployment-url", DEPLOYMENT_PAYLOAD: "deployment-payload",
+  for (const [variable, input] of Object.entries({ DEPLOYMENT_PAYLOAD: "deployment-payload",
     API_KEY_HEADER: "api-key-header", TAILSCALE_CLIENT_ID: "tailscale-client-id", TAILSCALE_AUDIENCE: "tailscale-audience", TAILSCALE_TAGS: "tailscale-tags" })) {
     assert.ok(workflow.includes(`${variable}: \${{ inputs.${input} }}`));
   }
-  assert.ok(workflow.includes("API_KEY: ${{ secrets.api-key }}"));
+  assert.ok(workflow.includes("DEPLOYMENT_URL: ${{ secrets.deployment-url || inputs.deployment-url }}"));
+  assert.ok(workflow.includes("API_KEY: ${{ secrets.api-key || '' }}"));
   assert.doesNotMatch(workflow, /checkout|secrets: inherit|oauth-secret|set -x/);
   assert.equal(scripts.length, 2);
   for (const script of scripts) assert.doesNotMatch(script, /\$\{\{/);
@@ -94,13 +96,13 @@ for (const [variable, values] of Object.entries({
   DEPLOYMENT_URL: ["", "ftp://host/deploy", "https:///deploy", "https://user:pass@host", "https://@host", "https://host/#", "https://host/#hidden", "https://host/a b", "https://host/\n", "https://host/\u0001", "https://host:99999", "https://host/\\other"],
   DEPLOYMENT_PAYLOAD: ["", "{invalid}", "NaN", "Infinity", '{"a":NaN}'],
   API_KEY_HEADER: ["", "x key", "x:key", "x-key\r\nOther"],
-  API_KEY: ["", "  ", "key\nOther", "key\rOther"],
+  API_KEY: ["key\nOther", "key\rOther"],
   TAILSCALE_CLIENT_ID: ["", "  "],
   TAILSCALE_AUDIENCE: ["", "\n"],
   TAILSCALE_TAGS: ["", "  "],
 })) {
   values.forEach((value, index) => test(`rejects invalid ${variable} (case ${index + 1}) without leaking values`, () => {
-    const result = run(scripts[0], { [variable]: value });
+    const result = run(scripts[0], { [variable]: value, ...(variable === "API_KEY" ? { API_KEY: value } : {}) });
     assert.notEqual(result.status, 0);
     assert.equal(result.request, undefined);
     assert.match(result.stderr, /::error::/);
@@ -108,12 +110,19 @@ for (const [variable, values] of Object.entries({
   }));
 }
 
+test("sends POST without an API-key header when no API key is configured", () => {
+  const result = run(scripts[1], { API_KEY: "" });
+  assert.equal(result.status, 0, result.stderr);
+  assert.ok(!result.request.args.some((argument) => argument.startsWith("x-api-key: ")));
+});
+
 test("sends exact POST with configurable header without redirects or retries", () => {
   const body = JSON.stringify({ data: '$(touch /do-not-run) `id` " Unicode: ñ' });
   const result = run(scripts[1], { API_KEY_HEADER: "Authorization", API_KEY: "Bearer secret", DEPLOYMENT_PAYLOAD: body });
   assert.equal(result.status, 0, result.stderr);
   assert.equal(result.request.body, body);
   const args = result.request.args;
+  assert.ok(args.includes("Authorization: Bearer secret"));
   assert.equal(args[0], "--disable");
   for (const [flag, value] of Object.entries({
     "--request": "POST", "--url": valid.DEPLOYMENT_URL, "--data-binary": "@-",

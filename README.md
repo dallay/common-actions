@@ -555,21 +555,25 @@ or verify deployment completion.
 
 Contract:
 
-- `deployment-url` (required): full HTTP/HTTPS URL, including a path and query if
-  needed; no credentials, fragment, or spaces.
+- `deployment-url` input (optional): non-secret full HTTP/HTTPS URL, including a
+  path and query if needed; no credentials, fragment, or spaces.
+- `deployment-url` secret (optional): full HTTP/HTTPS URL for credential-bearing
+  webhook URLs. When set, it takes precedence over the input. Do not put secret
+  URL values in `with` inputs.
 - `deployment-payload` (required): valid JSON, sent without modification. Do not
   include secrets in inputs.
 - `api-key-header` (optional): HTTP header name; defaults to `x-api-key`.
 - `tailscale-client-id`, `tailscale-audience`, `tailscale-tags` (required): the
   federated identity, audience, and authorized Tailscale tags.
-- `api-key` secret (required): full header value, without line breaks. For an API
+- `api-key` secret (optional): full header value, without line breaks. For an API
   that uses `Authorization`, include the required prefix in the secret, for
-  example `Bearer …`.
+  example `Bearer …`. When omitted, the request does not include the API-key header.
 
-The URL, body, and identity parameters are not secrets. GitHub may expose them in
+Payload and identity parameters are not secrets. GitHub may expose them in
 metadata and step setup logs while it processes inputs and environment variables.
 Value suppression applies only to script and `curl` output; it does not guarantee
-global confidentiality. The API key is passed as a secret and uses GitHub masking.
+global confidentiality. Secret URL and API-key values are passed as secrets and
+use GitHub masking.
 
 Consumer example (replace **`<IMMUTABLE_SHA>`** with a reviewed, real 40-character
 commit SHA; the placeholder is not an executable reference):
@@ -593,7 +597,10 @@ jobs:
       tailscale-audience: ${{ vars.TAILSCALE_AUDIENCE }}
       tailscale-tags: tag:ci-deploy
     secrets:
+      # Optional when the endpoint does not require an API-key header
       api-key: ${{ secrets.DEPLOYMENT_API_KEY }}
+      # Use this for webhook URLs that contain a credential in the path
+      deployment-url: ${{ secrets.DEPLOYMENT_WEBHOOK_URL }}
 ```
 
 Configure a Tailscale federated identity for the GitHub Actions OIDC issuer and

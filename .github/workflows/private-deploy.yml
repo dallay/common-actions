@@ -4,8 +4,9 @@ on:
   workflow_call:
     inputs:
       deployment-url:
-        description: Full URL of the private endpoint (HTTP or HTTPS)
-        required: true
+        description: Non-secret full URL of the private endpoint (HTTP or HTTPS)
+        required: false
+        default: ''
         type: string
       deployment-payload:
         description: JSON body for the POST request
@@ -30,14 +31,17 @@ on:
         type: string
     secrets:
       api-key:
-        description: Full value of the authentication header
-        required: true
+        description: Full value of the authentication header when required by the endpoint
+        required: false
+      deployment-url:
+        description: Full private endpoint URL; store credential-bearing URLs as a secret
+        required: false
 
 permissions:
   id-token: write
 
 concurrency:
-  group: private-deploy-${{ github.repository }}-${{ github.workflow }}-${{ github.ref }}-${{ inputs.deployment-url }}
+  group: private-deploy-${{ github.repository }}-${{ github.workflow }}-${{ github.ref }}
   cancel-in-progress: false
 
 jobs:
@@ -48,10 +52,10 @@ jobs:
     steps:
       - name: Validate parameters before connecting
         env:
-          DEPLOYMENT_URL: ${{ inputs.deployment-url }}
+          DEPLOYMENT_URL: ${{ secrets.deployment-url || inputs.deployment-url }}
           DEPLOYMENT_PAYLOAD: ${{ inputs.deployment-payload }}
           API_KEY_HEADER: ${{ inputs.api-key-header }}
-          API_KEY: ${{ secrets.api-key }}
+          API_KEY: ${{ secrets.api-key || '' }}
           TAILSCALE_CLIENT_ID: ${{ inputs.tailscale-client-id }}
           TAILSCALE_AUDIENCE: ${{ inputs.tailscale-audience }}
           TAILSCALE_TAGS: ${{ inputs.tailscale-tags }}
@@ -90,8 +94,8 @@ jobs:
           if not re.fullmatch(r"[!#$%&'*+.^_`|~0-9A-Za-z-]+", os.environ["API_KEY_HEADER"]):
               fail("The header name must be an HTTP token.")
           key = os.environ["API_KEY"]
-          if not key.strip() or any(ord(c) < 32 or ord(c) == 127 for c in key):
-              fail("The API key cannot be empty or contain control characters.")
+          if any(ord(c) < 32 or ord(c) == 127 for c in key):
+              fail("The API key cannot contain control characters.")
           for name in ("TAILSCALE_CLIENT_ID", "TAILSCALE_AUDIENCE", "TAILSCALE_TAGS"):
               if not os.environ[name].strip():
                   fail("Tailscale OIDC parameters cannot be empty.")
@@ -106,10 +110,10 @@ jobs:
 
       - name: Send POST without exposing values
         env:
-          DEPLOYMENT_URL: ${{ inputs.deployment-url }}
+          DEPLOYMENT_URL: ${{ secrets.deployment-url || inputs.deployment-url }}
           DEPLOYMENT_PAYLOAD: ${{ inputs.deployment-payload }}
           API_KEY_HEADER: ${{ inputs.api-key-header }}
-          API_KEY: ${{ secrets.api-key }}
+          API_KEY: ${{ secrets.api-key || '' }}
         shell: bash
         run: |
           python3 - <<'PY'
@@ -119,16 +123,20 @@ jobs:
           import sys
 
           try:
-              result = subprocess.run([
+              command = [
                   "curl", "--disable", "--silent", "--globoff",
                   "--noproxy", "*", "--proto", "=http,https",
                   "--request", "POST", "--url", os.environ["DEPLOYMENT_URL"],
                   "--header", "Content-Type: application/json",
-                  "--header", os.environ["API_KEY_HEADER"] + ": " + os.environ["API_KEY"],
+              ]
+              if os.environ["API_KEY"]:
+                  command.extend(["--header", os.environ["API_KEY_HEADER"] + ": " + os.environ["API_KEY"]])
+              command.extend([
                   "--data-binary", "@-", "--output", "/dev/null",
                   "--write-out", "%{http_code}", "--connect-timeout", "10",
                   "--max-time", "60", "--retry", "0", "--max-redirs", "0",
-              ], input=os.environ["DEPLOYMENT_PAYLOAD"].encode("utf-8"),
+              ])
+              result = subprocess.run(command, input=os.environ["DEPLOYMENT_PAYLOAD"].encode("utf-8"),
                   stdout=subprocess.PIPE, stderr=subprocess.DEVNULL, timeout=65)
               accepted = result.returncode == 0 and re.fullmatch(rb"2[0-9]{2}", result.stdout)
           except (OSError, subprocess.TimeoutExpired, UnicodeError):
