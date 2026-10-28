@@ -57,6 +57,8 @@ test("declares dual authentication modes with isolated permissions", () => {
   assert.match(workflow, /default: oidc/);
   assert.match(workflow, /tailscale-client-id-secret:\n        description: Tailscale OAuth client ID; required in oauth mode\n        required: false/);
   assert.match(workflow, /tailscale-tags-secret:\n        description: Tailscale tags; required in oauth mode\n        required: false/);
+  assert.match(workflow, /deployment-payload-secret:\n        description: Secret JSON payload; takes precedence over the input\n        required: false/);
+  assert.match(workflow, /secrets\.deployment-payload-secret \|\| inputs\.deployment-payload/);
   assert.match(workflow, /tailscale-oauth-secret:\n        description: OAuth client secret; required in oauth mode\n        required: false/);
   assert.match(workflow, /secrets\.tailscale-client-id-secret \|\| inputs\.tailscale-client-id/);
   assert.match(workflow, /secrets\.tailscale-tags-secret \|\| inputs\.tailscale-tags/);

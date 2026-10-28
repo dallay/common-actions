@@ -9,8 +9,9 @@ on:
         default: ''
         type: string
       deployment-payload:
-        description: JSON body for the POST request
-        required: true
+        description: JSON body for the POST request; use deployment-payload-secret for sensitive payloads
+        required: false
+        default: ''
         type: string
       api-key-header:
         description: Name of the header that receives the API key
@@ -43,6 +44,9 @@ on:
         required: false
       deployment-url:
         description: Full private endpoint URL; store credential-bearing URLs as a secret
+        required: false
+      deployment-payload-secret:
+        description: Secret JSON payload; takes precedence over the input
         required: false
       tailscale-client-id-secret:
         description: Tailscale OAuth client ID; required in oauth mode
@@ -101,7 +105,7 @@ jobs:
         name: Validate deployment parameters before connecting
         env:
           DEPLOYMENT_URL: ${{ secrets.deployment-url || inputs.deployment-url }}
-          DEPLOYMENT_PAYLOAD: ${{ inputs.deployment-payload }}
+          DEPLOYMENT_PAYLOAD: ${{ secrets.deployment-payload-secret || inputs.deployment-payload }}
           API_KEY_HEADER: ${{ inputs.api-key-header }}
           API_KEY: ${{ secrets.api-key || '' }}
         shell: bash
@@ -153,7 +157,7 @@ jobs:
         name: Send POST without exposing values
         env:
           DEPLOYMENT_URL: ${{ secrets.deployment-url || inputs.deployment-url }}
-          DEPLOYMENT_PAYLOAD: ${{ inputs.deployment-payload }}
+          DEPLOYMENT_PAYLOAD: ${{ secrets.deployment-payload-secret || inputs.deployment-payload }}
           API_KEY_HEADER: ${{ inputs.api-key-header }}
           API_KEY: ${{ secrets.api-key || '' }}
         shell: bash

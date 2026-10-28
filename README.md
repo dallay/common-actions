@@ -560,8 +560,9 @@ Contract:
 - `deployment-url` secret (optional): full HTTP/HTTPS URL for credential-bearing
   webhook URLs. When set, it takes precedence over the input. Do not put secret
   URL values in `with` inputs.
-- `deployment-payload` (required): valid JSON, sent without modification. Do not
-  include secrets in inputs.
+- `deployment-payload` input (optional): non-secret valid JSON, sent without modification.
+- `deployment-payload-secret` secret (optional): valid JSON body for sensitive payloads.
+  When set, it takes precedence over the input.
 - `api-key-header` (optional): HTTP header name; defaults to `x-api-key`.
 - `tailscale-auth-mode` (optional): `oidc` (default) or `oauth`.
 - `tailscale-client-id` and `tailscale-tags` inputs (required in `oidc` mode): the
@@ -629,8 +630,8 @@ jobs:
     with:
       tailscale-auth-mode: oauth
       deployment-url: http://internal.service:8080/api/deploy
-      deployment-payload: '{"version":"1.2.3"}'
     secrets:
+      deployment-payload-secret: ${{ secrets.DEPLOYMENT_PAYLOAD }}
       tailscale-client-id-secret: ${{ secrets.TAILSCALE_CLIENT_ID }}
       tailscale-tags-secret: ${{ secrets.TAILSCALE_TAGS }}
       tailscale-oauth-secret: ${{ secrets.TAILSCALE_OAUTH_SECRET }}
