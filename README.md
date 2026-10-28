@@ -564,8 +564,11 @@ Contract:
   include secrets in inputs.
 - `api-key-header` (optional): HTTP header name; defaults to `x-api-key`.
 - `tailscale-auth-mode` (optional): `oidc` (default) or `oauth`.
-- `tailscale-client-id` and `tailscale-tags` (required): the OAuth client ID and
-  authorized Tailscale tags for either mode.
+- `tailscale-client-id` and `tailscale-tags` inputs (required in `oidc` mode): the
+  OAuth client ID and authorized Tailscale tags.
+- `tailscale-client-id-secret` and `tailscale-tags-secret` secrets (required in
+  `oauth` mode): the OAuth client ID and authorized tags. When provided, these
+  secrets take precedence over the matching inputs.
 - `tailscale-audience` (required in `oidc` mode): the audience configured for the
   Tailscale federated identity provider. It is not used in `oauth` mode.
 - `tailscale-oauth-secret` secret (required in `oauth` mode): the OAuth client
@@ -574,11 +577,10 @@ Contract:
   that uses `Authorization`, include the required prefix in the secret, for
   example `Bearer …`. When omitted, the request does not include the API-key header.
 
-Payload and identity parameters are not secrets. GitHub may expose them in
-metadata and step setup logs while it processes inputs and environment variables.
-Value suppression applies only to script and `curl` output; it does not guarantee
-global confidentiality. Secret URL and API-key values are passed as secrets and
-use GitHub masking.
+OIDC inputs are visible in workflow metadata and must not contain secrets. OAuth
+credentials can be passed as GitHub secrets; the secret forms take precedence over
+matching inputs when both are provided. Secret values use GitHub masking and are
+not printed by the workflow scripts.
 
 Consumer example (replace **`<IMMUTABLE_SHA>`** with a reviewed, real 40-character
 commit SHA; the placeholder is not an executable reference):
@@ -628,19 +630,19 @@ jobs:
       tailscale-auth-mode: oauth
       deployment-url: http://internal.service:8080/api/deploy
       deployment-payload: '{"version":"1.2.3"}'
-      tailscale-client-id: ${{ vars.TAILSCALE_CLIENT_ID }}
-      tailscale-tags: tag:ci-deploy
     secrets:
+      tailscale-client-id-secret: ${{ secrets.TAILSCALE_CLIENT_ID }}
+      tailscale-tags-secret: ${{ secrets.TAILSCALE_TAGS }}
       tailscale-oauth-secret: ${{ secrets.TAILSCALE_OAUTH_SECRET }}
       deployment-url: ${{ secrets.DEPLOYMENT_WEBHOOK_URL }}
 ```
 
-The OAuth caller and reusable workflow do not need `id-token: write`.
+The OAuth job inside the reusable workflow does not receive `id-token: write`. GitHub validates permissions across the complete reusable-workflow file, so the calling job must allow `id-token: write` even when `tailscale-auth-mode` is `oauth`; the OAuth job itself keeps `permissions: {}`.
 
 The reusable workflow grants `id-token: write` only to its OIDC job. The calling
 workflow must also grant that permission to the reusable-workflow job in OIDC mode.
-OAuth mode does not require `id-token: write`. Both jobs use `ubuntu-latest`; the
-deployment jobs have a five-minute timeout. It serializes requests by repository, caller workflow, ref, and target
+OAuth mode does not use `id-token: write` at runtime. Both jobs use `ubuntu-latest`;
+the deployment jobs have a five-minute timeout. It serializes requests by repository, caller workflow, ref, and target
 URL without canceling active requests. GitHub may replace pending runs; this is
 not a FIFO queue or a global lock across workflows or branches.
 

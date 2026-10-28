@@ -23,8 +23,9 @@ on:
         default: oidc
         type: string
       tailscale-client-id:
-        description: OAuth client ID for Tailscale authentication
-        required: true
+        description: OAuth client ID for Tailscale authentication; use the secret in oauth mode
+        required: false
+        default: ''
         type: string
       tailscale-audience:
         description: Configured OIDC audience; required in oidc mode
@@ -32,8 +33,9 @@ on:
         default: ''
         type: string
       tailscale-tags:
-        description: Authorized tags for the ephemeral node
-        required: true
+        description: Authorized tags for the ephemeral node; use the secret in oauth mode
+        required: false
+        default: ''
         type: string
     secrets:
       api-key:
@@ -41,6 +43,12 @@ on:
         required: false
       deployment-url:
         description: Full private endpoint URL; store credential-bearing URLs as a secret
+        required: false
+      tailscale-client-id-secret:
+        description: Tailscale OAuth client ID; required in oauth mode
+        required: false
+      tailscale-tags-secret:
+        description: Tailscale tags; required in oauth mode
         required: false
       tailscale-oauth-secret:
         description: OAuth client secret; required in oauth mode
@@ -191,9 +199,9 @@ jobs:
     steps:
       - name: Validate OAuth parameters
         env:
-          TAILSCALE_CLIENT_ID: ${{ inputs.tailscale-client-id }}
+          TAILSCALE_CLIENT_ID: ${{ secrets.tailscale-client-id-secret || inputs.tailscale-client-id }}
           TAILSCALE_OAUTH_SECRET: ${{ secrets.tailscale-oauth-secret || '' }}
-          TAILSCALE_TAGS: ${{ inputs.tailscale-tags }}
+          TAILSCALE_TAGS: ${{ secrets.tailscale-tags-secret || inputs.tailscale-tags }}
         shell: bash
         run: |
           if [[ -z "${TAILSCALE_CLIENT_ID//[[:space:]]/}" || -z "${TAILSCALE_OAUTH_SECRET//[[:space:]]/}" || -z "${TAILSCALE_TAGS//[[:space:]]/}" ]]; then
@@ -206,8 +214,8 @@ jobs:
       - name: Connect to private network via OAuth
         uses: tailscale/github-action@99a8333667fff04fdd6cffb46dfd409f8329a7bf # v4
         with:
-          oauth-client-id: ${{ inputs.tailscale-client-id }}
+          oauth-client-id: ${{ secrets.tailscale-client-id-secret || inputs.tailscale-client-id }}
           oauth-secret: ${{ secrets.tailscale-oauth-secret }}
-          tags: ${{ inputs.tailscale-tags }}
+          tags: ${{ secrets.tailscale-tags-secret || inputs.tailscale-tags }}
 
       - *send-deployment
