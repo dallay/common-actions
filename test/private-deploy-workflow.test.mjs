@@ -150,6 +150,15 @@ for (const status of ["200", "204", "299", "301", "400", "401", "500", "000"]) {
 test("fails on transport error even if curl emitted a 2xx code", () => {
   const result = run(postScript, {}, "200", "28");
   assert.notEqual(result.status, 0);
-  assert.match(result.stderr, /::error::/);
+  assert.match(result.stderr, /curl exit 28 and HTTP status 200/);
   assert.doesNotMatch(result.stdout + result.stderr, /secret-key|internal\.service|MUST NOT APPEAR/);
+});
+
+test("reports the rejected HTTP status without exposing response data", () => {
+  for (const status of ["301", "400", "401", "403", "404", "500"]) {
+    const result = run(postScript, {}, status);
+    assert.notEqual(result.status, 0);
+    assert.match(result.stderr, new RegExp(`HTTP status ${status}`));
+    assert.doesNotMatch(result.stdout + result.stderr, /secret-key|internal\.service|MUST NOT APPEAR/);
+  }
 });

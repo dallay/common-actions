@@ -168,6 +168,8 @@ jobs:
           import subprocess
           import sys
 
+          result = None
+          status = ""
           try:
               command = [
                   "curl", "--disable", "--silent", "--globoff",
@@ -184,11 +186,13 @@ jobs:
               ])
               result = subprocess.run(command, input=os.environ["DEPLOYMENT_PAYLOAD"].encode("utf-8"),
                   stdout=subprocess.PIPE, stderr=subprocess.DEVNULL, timeout=65)
-              accepted = result.returncode == 0 and re.fullmatch(rb"2[0-9]{2}", result.stdout)
+              status = result.stdout.decode("ascii", "replace")
           except (OSError, subprocess.TimeoutExpired, UnicodeError):
-              accepted = False
+              result = None
+          accepted = result is not None and result.returncode == 0 and re.fullmatch(r"2[0-9]{2}", status) is not None
           if not accepted:
-              print("::error::Request failed or did not receive an HTTP 2xx response. It was not retried.", file=sys.stderr)
+              detail = "before receiving an HTTP response" if result is None else f"with curl exit {result.returncode} and HTTP status {status or '000'}"
+              print(f"::error::Request failed {detail}. It was not retried.", file=sys.stderr)
               sys.exit(1)
           print("Request accepted (HTTP 2xx); deployment completion was not verified.")
           PY
