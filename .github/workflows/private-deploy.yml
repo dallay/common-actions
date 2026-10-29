@@ -18,6 +18,16 @@ on:
         required: false
         default: x-api-key
         type: string
+      extra-header-name:
+        description: Optional additional non-secret request header name
+        required: false
+        default: ''
+        type: string
+      extra-header-value:
+        description: Optional additional request header value; never use it for credentials
+        required: false
+        default: ''
+        type: string
       tailscale-auth-mode:
         description: Tailscale authentication mode
         required: false
@@ -108,6 +118,8 @@ jobs:
           DEPLOYMENT_PAYLOAD: ${{ secrets.deployment-payload-secret || inputs.deployment-payload }}
           API_KEY_HEADER: ${{ inputs.api-key-header }}
           API_KEY: ${{ secrets.api-key || '' }}
+          EXTRA_HEADER_NAME: ${{ inputs.extra-header-name }}
+          EXTRA_HEADER_VALUE: ${{ inputs.extra-header-value }}
         shell: bash
         run: |
           python3 - <<'PY'
@@ -144,6 +156,14 @@ jobs:
           key = os.environ["API_KEY"]
           if any(ord(c) < 32 or ord(c) == 127 for c in key):
               fail("The API key cannot contain control characters.")
+          extra_name = os.environ["EXTRA_HEADER_NAME"]
+          extra_value = os.environ["EXTRA_HEADER_VALUE"]
+          if bool(extra_name) != bool(extra_value):
+              fail("The extra header name and value must be provided together.")
+          if extra_name and not re.fullmatch(r"[!#$%&'*+.^_`|~0-9A-Za-z-]+", extra_name):
+              fail("The extra header name must be an HTTP token.")
+          if any(ord(c) < 32 or ord(c) == 127 for c in extra_value):
+              fail("The extra header value cannot contain control characters.")
           PY
 
       - name: Connect to private network via OIDC
@@ -160,6 +180,8 @@ jobs:
           DEPLOYMENT_PAYLOAD: ${{ secrets.deployment-payload-secret || inputs.deployment-payload }}
           API_KEY_HEADER: ${{ inputs.api-key-header }}
           API_KEY: ${{ secrets.api-key || '' }}
+          EXTRA_HEADER_NAME: ${{ inputs.extra-header-name }}
+          EXTRA_HEADER_VALUE: ${{ inputs.extra-header-value }}
         shell: bash
         run: |
           python3 - <<'PY'
@@ -179,6 +201,8 @@ jobs:
               ]
               if os.environ["API_KEY"]:
                   command.extend(["--header", os.environ["API_KEY_HEADER"] + ": " + os.environ["API_KEY"]])
+              if os.environ["EXTRA_HEADER_NAME"]:
+                  command.extend(["--header", os.environ["EXTRA_HEADER_NAME"] + ": " + os.environ["EXTRA_HEADER_VALUE"]])
               command.extend([
                   "--data-binary", "@-", "--output", "/dev/null",
                   "--write-out", "%{http_code}", "--connect-timeout", "10",

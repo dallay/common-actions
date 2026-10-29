@@ -18,6 +18,8 @@ const valid = {
   DEPLOYMENT_PAYLOAD: '{"version":"1.2.3"}',
   API_KEY_HEADER: "x-api-key",
   API_KEY: "secret-key",
+  EXTRA_HEADER_NAME: "",
+  EXTRA_HEADER_VALUE: "",
   TAILSCALE_AUTH_MODE: "oidc",
   TAILSCALE_CLIENT_ID: "client",
   TAILSCALE_AUDIENCE: "audience",
@@ -152,6 +154,25 @@ test("fails on transport error even if curl emitted a 2xx code", () => {
   assert.notEqual(result.status, 0);
   assert.match(result.stderr, /curl exit 28 and HTTP status 200/);
   assert.doesNotMatch(result.stdout + result.stderr, /secret-key|internal\.service|MUST NOT APPEAR/);
+});
+
+test("sends the extra non-secret header when both parts are provided", () => {
+  const result = run(postScript, { EXTRA_HEADER_NAME: "X-GitHub-Event", EXTRA_HEADER_VALUE: "push" });
+  assert.equal(result.status, 0, result.stderr);
+  assert.ok(result.request.args.includes("X-GitHub-Event: push"));
+});
+
+test("rejects an incomplete or malformed extra header", () => {
+  for (const changes of [
+    { EXTRA_HEADER_NAME: "X-GitHub-Event" },
+    { EXTRA_HEADER_VALUE: "push" },
+    { EXTRA_HEADER_NAME: "bad name", EXTRA_HEADER_VALUE: "push" },
+    { EXTRA_HEADER_NAME: "X-GitHub-Event", EXTRA_HEADER_VALUE: "push\nOther: 1" },
+  ]) {
+    const result = run(deploymentValidationScript, changes);
+    assert.notEqual(result.status, 0, JSON.stringify(changes));
+    assert.match(result.stderr, /::error::/);
+  }
 });
 
 test("reports the rejected HTTP status without exposing response data", () => {

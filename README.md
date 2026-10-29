@@ -564,6 +564,9 @@ Contract:
 - `deployment-payload-secret` secret (optional): valid JSON body for sensitive payloads.
   When set, it takes precedence over the input.
 - `api-key-header` (optional): HTTP header name; defaults to `x-api-key`.
+- `extra-header-name` and `extra-header-value` (optional, non-secret): one additional
+  static request header sent with the POST. Provide both or neither. Use it for
+  endpoints that require a provider event header, not for credentials.
 - `tailscale-auth-mode` (optional): `oidc` (default) or `oauth`.
 - `tailscale-client-id` and `tailscale-tags` inputs (required in `oidc` mode): the
   OAuth client ID and authorized Tailscale tags.
