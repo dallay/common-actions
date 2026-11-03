@@ -6,8 +6,13 @@
     ":semanticCommits",
     ":semanticCommitTypeAll(chore)"
   ],
-  "labels": ["dependencies", "automated"],
-  "assignees": ["yacosta738"],
+  "labels": [
+    "dependencies",
+    "automated"
+  ],
+  "assignees": [
+    "yacosta738"
+  ],
   "assignAutomerge": true,
   "prHourlyLimit": 5,
   "prConcurrentLimit": 10,
@@ -15,58 +20,110 @@
   "packageRules": [
     {
       "description": "Group all GitHub Actions digest/patch updates and automerge",
-      "matchManagers": ["github-actions"],
-      "matchUpdateTypes": ["digest", "pin", "patch"],
+      "matchManagers": [
+        "github-actions"
+      ],
+      "matchUpdateTypes": [
+        "digest",
+        "pin",
+        "patch"
+      ],
       "groupName": "github-actions (digest+patch)",
       "automerge": true,
-      "schedule": ["before 6am on Monday"]
+      "schedule": [
+        "before 6am on Monday"
+      ]
     },
     {
       "description": "Group all GitHub Actions minor updates and automerge",
-      "matchManagers": ["github-actions"],
-      "matchUpdateTypes": ["minor"],
+      "matchManagers": [
+        "github-actions"
+      ],
+      "matchUpdateTypes": [
+        "minor"
+      ],
       "groupName": "github-actions (minor)",
       "automerge": true,
-      "schedule": ["before 6am on Monday"]
+      "schedule": [
+        "before 6am on Monday"
+      ]
     },
     {
       "description": "GitHub Actions major updates - separate PRs, manual review",
-      "matchManagers": ["github-actions"],
-      "matchUpdateTypes": ["major"],
+      "matchManagers": [
+        "github-actions"
+      ],
+      "matchUpdateTypes": [
+        "major"
+      ],
       "automerge": false,
-      "addLabels": ["breaking"]
+      "addLabels": [
+        "breaking"
+      ]
     },
     {
       "description": "Group all npm devDependencies digest/patch updates and automerge",
-      "matchManagers": ["npm"],
-      "matchDepTypes": ["devDependencies"],
-      "matchUpdateTypes": ["digest", "pin", "patch"],
+      "matchManagers": [
+        "npm"
+      ],
+      "matchDepTypes": [
+        "devDependencies"
+      ],
+      "matchUpdateTypes": [
+        "digest",
+        "pin",
+        "patch"
+      ],
       "groupName": "npm devDependencies (digest+patch)",
       "automerge": true,
-      "schedule": ["before 6am on Monday"]
+      "schedule": [
+        "before 6am on Monday"
+      ]
     },
     {
       "description": "Group all npm devDependencies minor updates and automerge",
-      "matchManagers": ["npm"],
-      "matchDepTypes": ["devDependencies"],
-      "matchUpdateTypes": ["minor"],
+      "matchManagers": [
+        "npm"
+      ],
+      "matchDepTypes": [
+        "devDependencies"
+      ],
+      "matchUpdateTypes": [
+        "minor"
+      ],
       "groupName": "npm devDependencies (minor)",
       "automerge": true,
-      "schedule": ["before 6am on Monday"]
+      "schedule": [
+        "before 6am on Monday"
+      ]
     },
     {
       "description": "npm devDependencies major updates - separate PRs, manual review",
-      "matchManagers": ["npm"],
-      "matchDepTypes": ["devDependencies"],
-      "matchUpdateTypes": ["major"],
+      "matchManagers": [
+        "npm"
+      ],
+      "matchDepTypes": [
+        "devDependencies"
+      ],
+      "matchUpdateTypes": [
+        "major"
+      ],
       "automerge": false,
-      "addLabels": ["breaking"]
+      "addLabels": [
+        "breaking"
+      ]
     },
     {
       "description": "Ignore digest updates for actions pinned by SHA to silence marocchino false-positive warnings",
-      "matchManagers": ["github-actions"],
-      "matchPackageNames": ["marocchino/sticky-pull-request-comment"],
-      "matchUpdateTypes": ["digest"],
+      "matchManagers": [
+        "github-actions"
+      ],
+      "matchPackageNames": [
+        "marocchino/sticky-pull-request-comment"
+      ],
+      "matchUpdateTypes": [
+        "digest"
+      ],
       "enabled": false
     }
   ]

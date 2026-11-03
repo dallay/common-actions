@@ -4,11 +4,13 @@ Reusable GitHub Actions and workflows for the [dallay](https://github.com/dallay
 
 ## Overview
 
-This repository provides **composite actions** and **reusable workflows** that standardize CI/CD patterns across all repositories in the organization. Instead of duplicating workflow logic, every repo calls these shared building blocks.
+This repository provides **composite actions** and **reusable workflows** that standardize CI/CD
+patterns across all repositories in the organization. Instead of duplicating workflow logic, every
+repo calls these shared building blocks.
 
 ### Repository Structure
 
-```
+```text
 common-actions/
 ├── actions/                              # Composite Actions
 │   ├── setup-node/action.yml             # Node.js + pnpm setup with caching
@@ -23,6 +25,7 @@ common-actions/
 │
 └── .github/workflows/                    # Workflows (reusable + local)
     ├── semantic-pr.yml                   # Lint PR titles (Conventional Commits)
+    ├── gitguardian-scan.yml              # Scan repository history for exposed secrets
     ├── pr-labeler.yml                    # Path-based PR labeling
     ├── issue-labeler.yml                 # Keyword-based issue labeling
     ├── labels-sync.yml                   # Sync labels from YAML config
@@ -39,12 +42,12 @@ common-actions/
 
 ## Composite Actions vs Reusable Workflows
 
-| Feature | Composite Action | Reusable Workflow |
-|---------|-----------------|-------------------|
-| **Scope** | Steps within a job | Entire jobs |
-| **Secrets** | Inherits caller context | Must be passed explicitly |
-| **Logging** | Shows as single step | Each job/step logged individually |
-| **Use case** | Setup tools, build steps | Standalone processes |
+| Feature      | Composite Action         | Reusable Workflow                 |
+|--------------|--------------------------|-----------------------------------|
+| **Scope**    | Steps within a job       | Entire jobs                       |
+| **Secrets**  | Inherits caller context  | Must be passed explicitly         |
+| **Logging**  | Shows as single step     | Each job/step logged individually |
+| **Use case** | Setup tools, build steps | Standalone processes              |
 
 ---
 
@@ -81,7 +84,8 @@ steps:
 
 ### `actions/docker-build-push`
 
-Builds and pushes Docker images to both GHCR and Docker Hub with multi-arch support and registry-based caching.
+Builds and pushes Docker images to both GHCR and Docker Hub with multi-arch support and
+registry-based caching.
 
 ```yaml
 steps:
@@ -122,7 +126,8 @@ steps:
 
 ### `actions/setup-rust`
 
-Sets up Rust toolchain with optional components, cross-compile targets, and `Swatinem/rust-cache`. Supports optional `sccache` for distributed compilation.
+Sets up Rust toolchain with optional components, cross-compile targets, and `Swatinem/rust-cache`.
+Supports optional `sccache` for distributed compilation.
 
 ```yaml
 steps:
@@ -155,7 +160,8 @@ steps:
 
 ### `actions/codecov`
 
-Uploads code coverage reports to Codecov with graceful failure handling. Skips upload if no token is provided.
+Uploads code coverage reports to Codecov with graceful failure handling. Skips upload if no token is
+provided.
 
 ```yaml
 steps:
@@ -177,7 +183,8 @@ steps:
 
 Runs Playwright E2E tests with intelligent browser caching, artifact uploads, and step summary.
 
-> **Prerequisite:** Node.js and pnpm must be set up before using this action. Use `actions/setup-node` first.
+> **Prerequisite:** Node.js and pnpm must be set up before using this action. Use
+> `actions/setup-node` first.
 
 ```yaml
 steps:
@@ -197,9 +204,12 @@ steps:
 
 ### `actions/docker-security-scan`
 
-Scans Docker images for vulnerabilities using Trivy. Uploads SARIF reports to the GitHub Security tab and saves results as artifacts.
+Scans Docker images for vulnerabilities using Trivy. Uploads SARIF reports to the GitHub Security
+tab and saves results as artifacts.
 
-> Runner note: If you upgrade `github/codeql-action/upload-sarif` or `actions/upload-artifact` to versions that use upload-artifact v6, ensure self-hosted runners are >= 2.327.1 and Node.js 24 is available.
+> Runner note: If you upgrade `github/codeql-action/upload-sarif` or `actions/upload-artifact` to
+> versions that use upload-artifact v6, ensure self-hosted runners are >= 2.327.1 and Node.js 24 is
+> available.
 
 ```yaml
 steps:
@@ -218,18 +228,47 @@ steps:
 
 ## Reusable Workflows
 
-> Tip: Most reusable workflows accept an optional `github-token` secret to override the default `GITHUB_TOKEN` (e.g., use a GitHub App token). The semantic-release workflow uses its own GitHub App credentials.
+> Tip: Most reusable workflows accept an optional `github-token` secret to override the default
+> `GITHUB_TOKEN` (e.g., use a GitHub App token). The semantic-release workflow uses its own GitHub App
+> credentials.
+
+### `gitguardian-scan.yml` — Scan for Exposed Secrets
+
+Runs GitGuardian's `ggshield` secret scan. The calling repository chooses the trigger events and
+must define a `GITGUARDIAN_API_KEY` Actions secret.
+
+```yaml
+# .github/workflows/gitguardian-scan.yml in the consuming repository
+name: GitGuardian scan
+on: [ push, pull_request ]
+
+permissions:
+  contents: read
+
+jobs:
+  scan:
+    uses: dallay/common-actions/.github/workflows/gitguardian-scan.yml@v1
+    secrets:
+      gitguardian-api-key: ${{ secrets.GITGUARDIAN_API_KEY }}
+```
+
+The reusable workflow checks out the full history and pins `GitGuardian/ggshield` to a commit SHA.
+GitHub does not provide repository secrets to workflows triggered by pull requests from forks, so
+this scan cannot authenticate for those events with the repository secret. Do not switch to
+`pull_request_target` and check out untrusted PR code to work around that restriction; use
+GitGuardian's GitHub integration if fork coverage is required.
 
 ### `semantic-pr.yml` — Lint PR Titles
 
-Validates PR titles follow [Conventional Commits](https://www.conventionalcommits.org/). Posts a helpful sticky comment on failure.
+Validates PR titles follow [Conventional Commits](https://www.conventionalcommits.org/). Posts a
+helpful sticky comment on failure.
 
 ```yaml
 # .github/workflows/semantic-pr.yml
 name: Lint PR title
 on:
   pull_request_target:
-    types: [opened, edited, synchronize]
+    types: [ opened, edited, synchronize ]
 
 jobs:
   lint:
@@ -250,7 +289,7 @@ Auto-labels PRs based on changed file paths. Requires a `.github/labeler.yml` co
 name: PR Labeler
 on:
   pull_request_target:
-    types: [opened, synchronize, reopened]
+    types: [ opened, synchronize, reopened ]
 
 jobs:
   label:
@@ -265,14 +304,15 @@ jobs:
 
 ### `issue-labeler.yml` — Label Issues by Keywords
 
-Auto-labels issues based on title/body keywords. Requires a `.github/issue-labeler-config.yml` in your repo.
+Auto-labels issues based on title/body keywords. Requires a `.github/issue-labeler-config.yml` in
+your repo.
 
 ```yaml
 # .github/workflows/issue-labeler.yml
 name: Issue Labeler
 on:
   issues:
-    types: [opened, edited]
+    types: [ opened, edited ]
 
 jobs:
   label:
@@ -291,8 +331,8 @@ Synchronizes GitHub labels from a YAML config file. Requires a `.github/labels.y
 name: Sync Labels
 on:
   push:
-    branches: [main]
-    paths: [".github/labels.yml"]
+    branches: [ main ]
+    paths: [ ".github/labels.yml" ]
   workflow_dispatch:
 
 jobs:
@@ -305,14 +345,15 @@ jobs:
 
 ### `semantic-release.yml` — Automated Releases
 
-Runs semantic-release with a GitHub App token for authentication. Outputs version info for downstream jobs.
+Runs semantic-release with a GitHub App token for authentication. Outputs version info for
+downstream jobs.
 
 ```yaml
 # .github/workflows/release.yml
 name: Release
 on:
   push:
-    branches: [main]
+    branches: [ main ]
 
 jobs:
   release:
@@ -335,9 +376,11 @@ jobs:
       - run: echo "Deploying version ${{ needs.release.outputs.new-release-version }}"
 ```
 
-**Outputs:** `new-release-published`, `new-release-version`, `new-release-major-version`, `new-release-minor-version`, `new-release-patch-version`, `new-release-git-tag`
+**Outputs:** `new-release-published`, `new-release-version`, `new-release-major-version`,
+`new-release-minor-version`, `new-release-patch-version`, `new-release-git-tag`
 
-> This repo ships a local release workflow at `.github/workflows/release.yml` that calls the reusable semantic-release workflow using `npx semantic-release` and the `.releaserc.json` config.
+> This repo ships a local release workflow at `.github/workflows/release.yml` that calls the
+> reusable semantic-release workflow using `npx semantic-release` and the `.releaserc.json` config.
 
 ### `stale.yml` — Close Stale Issues/PRs
 
@@ -369,7 +412,7 @@ Posts a welcome message for first-time issue creators and PR authors.
 ```yaml
 # .github/workflows/greetings.yml
 name: Greetings
-on: [pull_request, issues]
+on: [ pull_request, issues ]
 
 jobs:
   greet:
@@ -391,7 +434,7 @@ Generates a quality report for PR contributors based on merge rate, account age,
 name: Contributor Report
 on:
   pull_request:
-    types: [opened, reopened, synchronize, edited]
+    types: [ opened, reopened, synchronize, edited ]
 
 jobs:
   report:
@@ -412,7 +455,7 @@ Removes GitHub Actions caches associated with a closed PR's branch.
 name: Cleanup caches
 on:
   pull_request:
-    types: [closed]
+    types: [ closed ]
 
 jobs:
   cleanup:
@@ -426,9 +469,11 @@ jobs:
 
 ### `cache-maintenance.yml` — Cleanup Caches by Age and Type
 
-Cleans up GitHub Actions caches older than a configurable retention period. Supports filtering by cache type (pnpm, playwright, build, or all). Outputs a summary table with deletion counts.
+Cleans up GitHub Actions caches older than a configurable retention period. Supports filtering by
+cache type (pnpm, playwright, build, or all). Outputs a summary table with deletion counts.
 
-> Unlike `cleanup-cache.yml` (which targets a specific PR branch), this workflow cleans **all** caches across the repository based on age and optional type prefix.
+> Unlike `cleanup-cache.yml` (which targets a specific PR branch), this workflow cleans **all**
+> caches across the repository based on age and optional type prefix.
 
 ```yaml
 # .github/workflows/cache-maintenance.yml
@@ -460,14 +505,16 @@ jobs:
 
 ### `pr-size-labeler.yml` — Label PRs by Size
 
-Automatically labels PRs based on their size (number of lines changed). Uses [codelytv/pr-size-labeler](https://github.com/CodelyTV/pr-size-labeler) to categorize PRs into XS, S, M, L, or XL.
+Automatically labels PRs based on their size (number of lines changed).
+Uses [codelytv/pr-size-labeler](https://github.com/CodelyTV/pr-size-labeler) to categorize PRs into
+XS, S, M, L, or XL.
 
 ```yaml
 # .github/workflows/pr-size-labeler.yml
 name: PR Size Labeler
 on:
   pull_request_target:
-    types: [opened, synchronize, reopened]
+    types: [ opened, synchronize, reopened ]
   workflow_call:
 
 jobs:
@@ -478,13 +525,13 @@ jobs:
 
 **Size thresholds (default):**
 
-| Label | Max changes |
-|-------|-------------|
-| `size/xs` | 10 |
-| `size/s` | 100 |
-| `size/m` | 500 |
-| `size/l` | 1000 |
-| `size/xl` | > 1000 |
+| Label     | Max changes |
+|-----------|-------------|
+| `size/xs` | 10          |
+| `size/s`  | 100         |
+| `size/m`  | 500         |
+| `size/l`  | 1000        |
+| `size/xl` | > 1000      |
 
 You can customize labels and thresholds by calling the action directly:
 
@@ -505,7 +552,8 @@ jobs:
 
 ### `dependabot-auto-merge.yml` — Auto-Merge Dependabot PRs
 
-Automatically approves and merges Dependabot (and Renovate) PRs once all checks pass. Supports GitHub App authentication for merged commits and posts sticky status comments on the PR.
+Automatically approves and merges Dependabot (and Renovate) PRs once all checks pass. Supports
+GitHub App authentication for merged commits and posts sticky status comments on the PR.
 
 ```yaml
 # .github/workflows/dependabot-auto-merge.yml
@@ -594,7 +642,7 @@ name: Request private deployment
 on:
   workflow_dispatch:
 
-permissions: {}
+permissions: { }
 
 jobs:
   deploy:
@@ -641,12 +689,16 @@ jobs:
       deployment-url: ${{ secrets.DEPLOYMENT_WEBHOOK_URL }}
 ```
 
-The OAuth job inside the reusable workflow does not receive `id-token: write`. GitHub validates permissions across the complete reusable-workflow file, so the calling job must allow `id-token: write` even when `tailscale-auth-mode` is `oauth`; the OAuth job itself keeps `permissions: {}`.
+The OAuth job inside the reusable workflow does not receive `id-token: write`. GitHub validates
+permissions across the complete reusable-workflow file, so the calling job must allow
+`id-token: write` even when `tailscale-auth-mode` is `oauth`; the OAuth job itself keeps
+`permissions: {}`.
 
 The reusable workflow grants `id-token: write` only to its OIDC job. The calling
 workflow must also grant that permission to the reusable-workflow job in OIDC mode.
 OAuth mode does not use `id-token: write` at runtime. Both jobs use `ubuntu-latest`;
-the deployment jobs have a five-minute timeout. It serializes requests by repository, caller workflow, ref, and target
+the deployment jobs have a five-minute timeout. It serializes requests by repository, caller
+workflow, ref, and target
 URL without canceling active requests. GitHub may replace pending runs; this is
 not a FIFO queue or a global lock across workflows or branches.
 
@@ -680,7 +732,8 @@ actionlint .github/workflows/private-deploy.yml
 
 ## Versioning
 
-This repository uses [Semantic Versioning](https://semver.org/). Pin your usage to a major version tag:
+This repository uses [Semantic Versioning](https://semver.org/). Pin your usage to a major version
+tag:
 
 ```yaml
 uses: dallay/common-actions/actions/setup-node@v1      # Recommended: major version

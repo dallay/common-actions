@@ -14,12 +14,12 @@ name: Test composite actions
 
 on:
   push:
-    branches: [main]
+    branches: [ main ]
     paths:
       - 'actions/**'
       - '.github/workflows/test-actions.yml'
   pull_request:
-    branches: [main]
+    branches: [ main ]
     paths:
       - 'actions/**'
       - '.github/workflows/test-actions.yml'

@@ -68,7 +68,7 @@ on:
         description: OAuth client secret; required in oauth mode
         required: false
 
-permissions: {}
+permissions: { }
 
 concurrency:
   group: private-deploy-${{ github.repository }}-${{ github.workflow }}-${{ github.ref }}
@@ -227,7 +227,7 @@ jobs:
     name: Send private request using OAuth
     runs-on: ubuntu-latest
     timeout-minutes: 5
-    permissions: {}
+    permissions: { }
     steps:
       - name: Validate OAuth parameters
         env:
