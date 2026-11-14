@@ -6,7 +6,7 @@
 #     pull-requests: write # Required for sticky PR status comments
 #   jobs:
 #     lint-pr:
-#       uses: dallay/common-actions/.github/workflows/semantic-pull-request.yml@v2
+#       uses: dallay/common-actions/.github/workflows/semantic-pull-request.yml@main # Replace with a release tag after this alias is published
 #       secrets: inherit
 name: Lint PR title
 
@@ -35,8 +35,6 @@ jobs:
     name: Validate PR title
     runs-on: ubuntu-latest
     if: ${{ !contains(fromJson(inputs.skip-bots), github.actor) }}
-    env:
-      GITHUB_TOKEN: ${{ secrets.github-token || github.token }}
     steps:
       - uses: amannn/action-semantic-pull-request@2252a14e810aa9b85c2d560bd7070c802206ecf6 # v6
         id: lint_pr_title
