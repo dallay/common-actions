@@ -277,6 +277,10 @@ specification. Posts a sticky comment with details on failure, and deletes it on
 >
 > An alias file `.github/workflows/semantic-pull-request.yml` is also provided for compatibility.
 
+<!-- coderabbit-ai-generated:v1 -->
+
+<!-- coderabbit-ai-generated-section:v1:d2085d4ee3048c7c08cb6252c8e7fee1296530f6f8e1e524770a879ab63c65ee -->
+
 ```yaml
 # .github/workflows/semantic-pr.yml
 name: Lint PR title
@@ -291,13 +295,15 @@ on:
 
 jobs:
   lint:
-    uses: dallay/common-actions/.github/workflows/semantic-pr.yml@v2
+    uses: dallay/common-actions/.github/workflows/semantic-pr.yml@v2.9.1
     secrets: inherit
     # secrets:
     #   github-token: ${{ secrets.GITHUB_TOKEN }}  # optional override
     # with:
     #   skip-bots: '["dependabot[bot]","renovate[bot]"]'  # optional JSON array of bot actors to skip
 ```
+
+<!-- /coderabbit-ai-generated:v1 -->
 
 ### `pr-labeler.yml` — Label PRs by Path
 
