@@ -1,8 +1,11 @@
 # Reusable workflow: Lint PR titles against Conventional Commits spec
 # Usage:
+#   permissions:
+#     contents: read
+#     pull-requests: write # Required for sticky PR status comments
 #   jobs:
 #     lint-pr:
-#       uses: dallay/common-actions/.github/workflows/semantic-pr.yml@v1
+#       uses: dallay/common-actions/.github/workflows/semantic-pr.yml@v2.9.1
 #       secrets: inherit
 name: Lint PR title
 
@@ -31,15 +34,15 @@ jobs:
     name: Validate PR title
     runs-on: ubuntu-latest
     if: ${{ !contains(fromJson(inputs.skip-bots), github.actor) }}
-    env:
-      GITHUB_TOKEN: ${{ secrets.github-token || github.token }}
     steps:
       - uses: amannn/action-semantic-pull-request@2252a14e810aa9b85c2d560bd7070c802206ecf6 # v6
         id: lint_pr_title
 
       - uses: marocchino/sticky-pull-request-comment@5770ad5eb8f42dd2c4f34da00c94c5381e49af88 # v3
         if: always() && (steps.lint_pr_title.outputs.error_message != null)
+        continue-on-error: true
         with:
+          GITHUB_TOKEN: ${{ secrets.github-token || github.token }}
           header: pr-title-lint-error
           message: |
             Hey there and thank you for opening this pull request!
@@ -52,8 +55,10 @@ jobs:
             ${{ steps.lint_pr_title.outputs.error_message }}
             ```
 
-      - if: ${{ steps.lint_pr_title.outputs.error_message == null }}
-        uses: marocchino/sticky-pull-request-comment@5770ad5eb8f42dd2c4f34da00c94c5381e49af88 # v3
+      - uses: marocchino/sticky-pull-request-comment@5770ad5eb8f42dd2c4f34da00c94c5381e49af88 # v3
+        if: ${{ steps.lint_pr_title.outputs.error_message == null }}
+        continue-on-error: true
         with:
+          GITHUB_TOKEN: ${{ secrets.github-token || github.token }}
           header: pr-title-lint-error
           delete: true
