@@ -5,6 +5,7 @@
   "description": "Reusable GitHub Actions workflows and composite actions",
   "repository": "github.com:dallay/common-actions",
   "scripts": {
+    "test": "node --test test/*.test.mjs",
     "semantic-release": "semantic-release"
   },
   "devDependencies": {

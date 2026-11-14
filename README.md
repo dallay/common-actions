@@ -25,6 +25,7 @@ common-actions/
 │
 └── .github/workflows/                    # Workflows (reusable + local)
     ├── semantic-pr.yml                   # Lint PR titles (Conventional Commits)
+    ├── semantic-pull-request.yml         # Alias for semantic-pr.yml
     ├── gitguardian-scan.yml              # Scan repository history for exposed secrets
     ├── pr-labeler.yml                    # Path-based PR labeling
     ├── issue-labeler.yml                 # Keyword-based issue labeling
@@ -260,24 +261,42 @@ GitGuardian's GitHub integration if fork coverage is required.
 
 ### `semantic-pr.yml` — Lint PR Titles
 
-Validates PR titles follow [Conventional Commits](https://www.conventionalcommits.org/). Posts a
-helpful sticky comment on failure.
+Validates that PR titles follow the [Conventional Commits](https://www.conventionalcommits.org/)
+specification. Posts a sticky comment with details on failure, and deletes it once corrected.
+
+> **Note on Permissions:** If the caller workflow declares a top-level `permissions:` block, it
+> **must** include `pull-requests: write`. Omitting it causes a GitHub Actions startup failure:
+> `Error calling workflow: The workflow is requesting 'pull-requests: write', but is only allowed 'pull-requests: none'`.
+>
+> **Event Trigger & Security:** `semantic-pr.yml` contains zero checkout steps (`actions/checkout`
+> is never executed), so untrusted code is never run. You can trigger on `pull_request` (safe,
+> least-privilege) or `pull_request_target`. In public repositories preparing for GitHub's
+> December 2, 2026 `pull_request_target` default block, `pull_request` is recommended. On fork PRs
+> under `pull_request`, comment creation gracefully degrades (`continue-on-error: true`) while
+> title validation continues to protect the PR status check.
+>
+> An alias file `.github/workflows/semantic-pull-request.yml` is also provided for compatibility.
 
 ```yaml
 # .github/workflows/semantic-pr.yml
 name: Lint PR title
+
+permissions:
+  contents: read
+  pull-requests: write # Required for sticky PR status comments
+
 on:
-  pull_request_target:
-    types: [ opened, edited, synchronize ]
+  pull_request:
+    types: [ opened, edited, synchronize, reopened ]
 
 jobs:
   lint:
-    uses: dallay/common-actions/.github/workflows/semantic-pr.yml@v1
+    uses: dallay/common-actions/.github/workflows/semantic-pr.yml@v2
     secrets: inherit
     # secrets:
     #   github-token: ${{ secrets.GITHUB_TOKEN }}  # optional override
     # with:
-    #   skip-bot: "dependabot[bot]"  # optional, this is the default
+    #   skip-bots: '["dependabot[bot]","renovate[bot]"]'  # optional JSON array of bot actors to skip
 ```
 
 ### `pr-labeler.yml` — Label PRs by Path

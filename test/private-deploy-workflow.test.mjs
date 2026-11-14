@@ -85,11 +85,11 @@ test("declares dual authentication modes with isolated permissions", () => {
       /secrets\.tailscale-client-id-secret \|\| inputs\.tailscale-client-id/);
   assert.match(workflow,
       /secrets\.tailscale-tags-secret \|\| inputs\.tailscale-tags/);
-  assert.match(workflow, /permissions: \{\}/);
+  assert.match(workflow, /permissions: \{\s*\}/);
   assert.doesNotMatch(workflow, /permissions:\n  id-token: write/);
   assert.match(workflow,
       /deploy-oidc:[\s\S]*?permissions:\n      id-token: write/);
-  assert.match(workflow, /deploy-oauth:[\s\S]*?permissions: \{\}/);
+  assert.match(workflow, /deploy-oauth:[\s\S]*?permissions: \{\s*\}/);
   assert.match(workflow, /inputs\.tailscale-auth-mode == 'oidc'/);
   assert.match(workflow, /inputs\.tailscale-auth-mode == 'oauth'/);
   assert.match(workflow,
@@ -110,7 +110,7 @@ test("declares dual authentication modes with isolated permissions", () => {
   assert.equal((workflow.match(/^      - \*send-deployment/gm) ?? []).length,
       1);
   assert.match(workflow,
-      /tailscale\/github-action@99a8333667fff04fdd6cffb46dfd409f8329a7bf # v4/);
+      /tailscale\/github-action@(?:064b10558093f38325e838ddea35486bdc6b1d5c|99a8333667fff04fdd6cffb46dfd409f8329a7bf) # v4/);
   assert.equal(scripts.length, 5);
   assert.deepEqual([authModeScript.includes("oidc|oauth"),
     deploymentValidationScript.includes("urlsplit"),
